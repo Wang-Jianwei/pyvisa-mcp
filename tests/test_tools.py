@@ -84,6 +84,24 @@ class DummyAdapter:
         return getattr(resource, attribute)
 
 
+class FailingAdapter(DummyAdapter):
+    def __init__(self, *, fail_open: bool = False, fail_query: bool = False) -> None:
+        super().__init__()
+        self.fail_open = fail_open
+        self.fail_query = fail_query
+
+    def open_resource(self, **kwargs: object) -> DummyResource:
+        self.last_open_request = kwargs
+        if self.fail_open:
+            raise RuntimeError("open failed")
+        return super().open_resource(**kwargs)
+
+    def query_message(self, resource: DummyResource, command: str, *, delay_s: float | None = None):
+        if self.fail_query:
+            raise RuntimeError("query failed")
+        return super().query_message(resource, command, delay_s=delay_s)
+
+
 class ToolsTests(unittest.TestCase):
     def setUp(self) -> None:
         self.mcp = FakeMCP()
@@ -131,6 +149,53 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(query_result.response, "QUERY:*IDN?:delay=0.1")
         self.assertTrue(close_result.closed)
         self.assertEqual(len(self.adapter.closed_resources), 1)
+
+    def test_open_resource_session_returns_structured_error_on_adapter_failure(self) -> None:
+        mcp = FakeMCP()
+        adapter = FailingAdapter(fail_open=True)
+        registry = SessionRegistry()
+        register_tools(mcp, adapter=adapter, registry=registry, config=self.config)
+
+        open_resource_session = mcp.tools["open_resource_session"]
+        result = open_resource_session("TCPIP0::1::INSTR")
+
+        self.assertIsNone(result.session)
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "RuntimeError")
+        self.assertEqual(result.error.message, "open failed")
+
+    def test_query_message_returns_structured_error_for_unknown_session(self) -> None:
+        query_message = self.mcp.tools["query_message"]
+
+        result = query_message("missing-session", "*IDN?")
+
+        self.assertIsNone(result.response)
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "UnknownSessionError")
+
+    def test_query_message_returns_structured_error_on_adapter_failure(self) -> None:
+        mcp = FakeMCP()
+        adapter = FailingAdapter(fail_query=True)
+        registry = SessionRegistry()
+        register_tools(mcp, adapter=adapter, registry=registry, config=self.config)
+        session = registry.open(resource_name="TCPIP0::1::INSTR", resource=DummyResource())
+
+        query_message = mcp.tools["query_message"]
+        result = query_message(session.session_id, "*IDN?")
+
+        self.assertIsNone(result.response)
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "RuntimeError")
+        self.assertEqual(result.error.message, "query failed")
+
+    def test_close_resource_session_returns_unknown_session_error_code(self) -> None:
+        close_resource_session = self.mcp.tools["close_resource_session"]
+
+        result = close_resource_session("missing-session")
+
+        self.assertFalse(result.closed)
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "unknown_session")
 
     def test_set_resource_attribute_updates_registry_with_typed_values(self) -> None:
         resource = DummyResource()

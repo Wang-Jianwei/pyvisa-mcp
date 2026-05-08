@@ -122,3 +122,21 @@ Files added or updated
 Why it matters
 
 - The repository now protects the main PyVISA MCP control path with focused mocked tests, reducing the chance of regressions before sim or hardware validation.
+
+## [2026-05-08] implementation | add structured error-path coverage
+
+What changed
+
+- Added tests for `VisaAdapter` failure handling around import, resource manager setup, resource listing, and resource info reads.
+- Added tests for tool-layer structured error returns covering open failures, query failures, unknown sessions, and close-session error codes.
+
+Files added or updated
+
+- `tests/test_tools.py`
+- `tests/test_visa_adapter.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The project now verifies both success paths and key failure paths for the current mocked PyVISA MCP surface, making the bootstrap behavior more dependable before sim-backed validation.

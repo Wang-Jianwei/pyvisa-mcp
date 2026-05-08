@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -92,7 +93,42 @@ class FakeResourceManager:
         )
 
 
+class FailingResourceManager:
+    def list_resources(self, query: str):
+        del query
+        raise RuntimeError("list failure")
+
+    def list_resources_info(self, query: str):
+        del query
+        raise RuntimeError("info failure")
+
+    def resource_info(self, resource_name: str, extended: bool = True):
+        del resource_name, extended
+        raise RuntimeError("resource info failure")
+
+
 class VisaAdapterTests(unittest.TestCase):
+    def test_backend_status_reports_import_failure(self) -> None:
+        adapter = VisaAdapter(default_backend="sim")
+
+        with patch.object(VisaAdapter, "_try_import_pyvisa", return_value=(None, "import failed")):
+            status = adapter.backend_status()
+
+        self.assertFalse(status.available)
+        self.assertEqual(status.backend_hint, "@sim")
+        self.assertEqual(status.import_error, "import failed")
+
+    def test_backend_status_reports_resource_manager_failure(self) -> None:
+        adapter = VisaAdapter()
+
+        with patch.object(VisaAdapter, "_try_import_pyvisa", return_value=(type("PyVisaStub", (), {"__version__": "1.0"}), None)):
+            with patch.object(VisaAdapter, "_get_resource_manager", side_effect=RuntimeError("rm failed")):
+                status = adapter.backend_status()
+
+        self.assertFalse(status.available)
+        self.assertEqual(status.pyvisa_version, "1.0")
+        self.assertEqual(status.import_error, "rm failed")
+
     def test_list_visible_resources_maps_manager_output(self) -> None:
         resource = FakeResource()
         adapter = VisaAdapter()
@@ -106,6 +142,17 @@ class VisaAdapterTests(unittest.TestCase):
         self.assertEqual(result.resources[0].resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(result.resources[0].alias, "scope")
         self.assertEqual(result.resources[0].interface_type, "tcpip")
+
+    def test_list_visible_resources_returns_structured_error_on_manager_failure(self) -> None:
+        adapter = VisaAdapter()
+        adapter._resource_manager = FailingResourceManager()
+
+        result = adapter.list_visible_resources("?*")
+
+        self.assertEqual(result.query, "?*")
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "RuntimeError")
+        self.assertEqual(result.error.message, "list failure")
 
     def test_open_resource_applies_runtime_settings(self) -> None:
         resource = FakeResource()
@@ -149,6 +196,17 @@ class VisaAdapterTests(unittest.TestCase):
         self.assertEqual(info_result.info.resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(info_result.info.interface_board_number, 0)
         self.assertTrue(resource.closed)
+
+    def test_read_resource_info_returns_structured_error_on_failure(self) -> None:
+        adapter = VisaAdapter()
+        adapter._resource_manager = FailingResourceManager()
+
+        result = adapter.read_resource_info("TCPIP0::1::INSTR")
+
+        self.assertEqual(result.resource_name, "TCPIP0::1::INSTR")
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "RuntimeError")
+        self.assertEqual(result.error.message, "resource info failure")
 
 
 if __name__ == "__main__":

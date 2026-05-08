@@ -87,5 +87,6 @@ The repository now has stdlib-only tests for:
 - tool-layer attribute coercion and session updates
 - mocked tool flow for list/open/query/close
 - mocked `VisaAdapter` behavior for resource discovery, open, message operations, and resource info reads
+- structured error returns for adapter and tool failure paths
 
 The next verification step should focus on higher-fidelity mocked PyVISA error paths and, when available, sim-backend smoke tests.
