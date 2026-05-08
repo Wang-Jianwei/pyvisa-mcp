@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 import json
 from typing import Any
 
@@ -56,4 +55,8 @@ def register_resources(
 
 
 def _json_dump(value: Any) -> str:
-    return json.dumps(asdict(value), indent=2, sort_keys=True)
+    if hasattr(value, "model_dump"):
+        payload = value.model_dump(mode="json")
+    else:
+        payload = value
+    return json.dumps(payload, indent=2, sort_keys=True)

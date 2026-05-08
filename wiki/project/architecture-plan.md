@@ -56,6 +56,7 @@ The code currently provides:
 - a `SessionRegistry` for MCP-managed resource sessions
 - dataclass-based schemas for tools and resources with result counts and operation context
 - parameter-level tool schema descriptions so agents can see runtime semantics beyond names and primitive types
+- BaseModel-backed result schemas with field-level descriptions that flow into FastMCP output schemas
 - first-pass tool and resource registration functions
 
 ## First tool set
@@ -99,5 +100,6 @@ The repository now has stdlib-only tests for:
 - CLI command dispatch tests for REPL session reuse and output mode changes
 - CLI process integration against the repository-local sim backend over a real stdio MCP session
 - tool schema checks that confirm FastMCP exposes parameter descriptions to agents
+- output schema checks that confirm FastMCP exposes result-field descriptions to agents
 
 The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` path, plus richer CLI command coverage for attribute and resource-info workflows.

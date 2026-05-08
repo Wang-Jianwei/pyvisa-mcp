@@ -277,3 +277,38 @@ Files added or updated
 Why it matters
 
 - This prevents future refactors from silently dropping the schema descriptions that agents rely on when selecting tool arguments.
+
+## [2026-05-08] implementation | enrich result schemas for agents
+
+What changed
+
+- Converted the agent-facing result models from plain dataclasses to Pydantic models with field descriptions.
+- Updated resource JSON serialization to use model dumping so the same result models work for both MCP tool schemas and passive resources.
+
+Files added or updated
+
+- `src/pyvisa_mcp/schemas.py`
+- `src/pyvisa_mcp/resources.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- Agents can now see more of the meaning of result payloads directly in the MCP output schemas instead of inferring everything from field names alone.
+
+## [2026-05-08] verification | lock result descriptions into server schemas
+
+What changed
+
+- Added server integration assertions that inspect FastMCP output schemas and verify key result-field descriptions are present.
+- Re-ran focused server and resource tests to verify schema exposure and JSON serialization after the model conversion.
+
+Files added or updated
+
+- `tests/test_server.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- This prevents future schema refactors from silently regressing the result metadata that agents can use when interpreting tool responses.

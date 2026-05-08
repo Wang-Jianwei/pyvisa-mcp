@@ -42,6 +42,19 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Common runtime attributes", attribute_schema["attribute"]["description"])
         self.assertIn("Attribute value to set", attribute_schema["value"]["description"])
 
+    async def test_tool_output_schemas_include_result_descriptions(self) -> None:
+        tools = await self.server.list_tools()
+        tools_by_name = {tool.name: tool for tool in tools}
+
+        open_schema = tools_by_name["open_resource_session"].outputSchema
+        query_schema = tools_by_name["query_message"].outputSchema
+
+        self.assertIn("Resource name requested by the open operation", open_schema["properties"]["resource_name"]["description"])
+        self.assertIn("Session details when the resource opens successfully", open_schema["properties"]["session"]["description"])
+        self.assertIn("Structured error when the open operation fails", open_schema["properties"]["error"]["description"])
+        self.assertIn("String response returned by the instrument", query_schema["properties"]["response"]["description"])
+        self.assertIn("Machine-readable error code", query_schema["$defs"]["OperationError"]["properties"]["code"]["description"])
+
     async def test_capability_and_backend_resources_match_server_contract(self) -> None:
         capability_payload = json.loads((await self.server.read_resource("pyvisa-mcp://capabilities"))[0].content)
         backend_content, backend_payload = await self.server.call_tool("get_backend_diagnostics", {})
