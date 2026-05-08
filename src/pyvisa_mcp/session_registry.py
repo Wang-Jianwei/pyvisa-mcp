@@ -76,7 +76,7 @@ class SessionRegistry:
         with self._lock:
             sessions = [managed.to_summary() for managed in self._sessions.values()]
         sessions.sort(key=lambda item: item.session_id)
-        return SessionRegistrySnapshot(sessions=sessions)
+        return SessionRegistrySnapshot(session_count=len(sessions), sessions=sessions)
 
     def update_runtime_settings(
         self,
@@ -114,7 +114,11 @@ class SessionRegistry:
             raise UnknownSessionError(session_id)
         if close_callback is not None:
             close_callback(managed.resource)
-        return CloseResourceResult(session_id=session_id, closed=True)
+        return CloseResourceResult(
+            session_id=session_id,
+            closed=True,
+            resource_name=managed.resource_name,
+        )
 
     def close_all(
         self,

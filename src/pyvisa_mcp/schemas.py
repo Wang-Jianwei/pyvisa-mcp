@@ -32,6 +32,8 @@ class VisibleResource:
 @dataclass
 class VisibleResourcesResult:
     query: str
+    backend_hint: str | None = None
+    resource_count: int = 0
     resources: list[VisibleResource] = field(default_factory=list)
     error: OperationError | None = None
 
@@ -49,11 +51,13 @@ class SessionSummary:
 
 @dataclass
 class SessionRegistrySnapshot:
+    session_count: int = 0
     sessions: list[SessionSummary] = field(default_factory=list)
 
 
 @dataclass
 class OpenResourceResult:
+    resource_name: str
     session: SessionSummary | None = None
     error: OperationError | None = None
 
@@ -62,6 +66,7 @@ class OpenResourceResult:
 class CloseResourceResult:
     session_id: str
     closed: bool
+    resource_name: str | None = None
     error: OperationError | None = None
 
 
@@ -69,6 +74,7 @@ class CloseResourceResult:
 class WriteMessageResult:
     session_id: str
     message: str
+    resource_name: str | None = None
     bytes_written: int | None = None
     error: OperationError | None = None
 
@@ -76,6 +82,7 @@ class WriteMessageResult:
 @dataclass
 class ReadMessageResult:
     session_id: str
+    resource_name: str | None = None
     data: str | None = None
     error: OperationError | None = None
 
@@ -84,6 +91,8 @@ class ReadMessageResult:
 class QueryMessageResult:
     session_id: str
     command: str
+    resource_name: str | None = None
+    delay_s: float | None = None
     response: str | None = None
     error: OperationError | None = None
 
@@ -100,6 +109,7 @@ class ResourceInfoDetails:
 @dataclass
 class ResourceInfoResult:
     resource_name: str
+    backend_hint: str | None = None
     info: ResourceInfoDetails | None = None
     error: OperationError | None = None
 
@@ -108,6 +118,7 @@ class ResourceInfoResult:
 class AttributeResult:
     session_id: str
     attribute: str
+    resource_name: str | None = None
     value: Any | None = None
     error: OperationError | None = None
 
@@ -116,5 +127,7 @@ class AttributeResult:
 class CapabilitySummary:
     server_name: str
     preferred_transport: str
+    tool_count: int = 0
+    resource_count: int = 0
     tools: list[str] = field(default_factory=list)
     resources: list[str] = field(default_factory=list)

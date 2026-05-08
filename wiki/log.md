@@ -140,3 +140,49 @@ Files added or updated
 Why it matters
 
 - The project now verifies both success paths and key failure paths for the current mocked PyVISA MCP surface, making the bootstrap behavior more dependable before sim-backed validation.
+
+## [2026-05-08] implementation | support custom sim backends and richer result metadata
+
+What changed
+
+- Relaxed backend argument normalization so the server can pass explicit `profile.yaml@sim` backend strings through to PyVISA.
+- Enriched tool and resource result models with counts and resource-level context such as `resource_name`, `backend_hint`, and operation metadata.
+- Added passive resource tests to lock in the new JSON shape.
+
+Files added or updated
+
+- `README.md`
+- `src/pyvisa_mcp/config.py`
+- `src/pyvisa_mcp/resources.py`
+- `src/pyvisa_mcp/schemas.py`
+- `src/pyvisa_mcp/session_registry.py`
+- `src/pyvisa_mcp/tools.py`
+- `src/pyvisa_mcp/visa_adapter.py`
+- `tests/test_config.py`
+- `tests/test_resources.py`
+- `tests/test_session_registry.py`
+- `tests/test_tools.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The MCP surface now returns more self-describing payloads, and the adapter can target repository-local `pyvisa-sim` profiles instead of only shorthand backends like `@sim`.
+
+## [2026-05-08] verification | add sim-backed smoke validation
+
+What changed
+
+- Added a repository-local `pyvisa-sim` fixture profile and a smoke test that lists resources, opens a simulated instrument, and queries `*IDN?` through `VisaAdapter`.
+- Re-ran focused tests covering backend normalization, passive resources, and the new sim-backed adapter path.
+
+Files added or updated
+
+- `tests/fixtures/pyvisa_sim.yaml`
+- `tests/test_pyvisa_sim_smoke.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The project now has a real backend-backed validation layer between pure mocks and physical hardware, which reduces risk in the PyVISA integration boundary.

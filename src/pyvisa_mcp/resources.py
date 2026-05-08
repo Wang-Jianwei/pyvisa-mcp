@@ -47,6 +47,8 @@ def register_resources(
             CapabilitySummary(
                 server_name=config.server_name,
                 preferred_transport=config.preferred_transport,
+                tool_count=len(tool_names),
+                resource_count=len(RESOURCE_URIS),
                 tools=tool_names,
                 resources=RESOURCE_URIS,
             )

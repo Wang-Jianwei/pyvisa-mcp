@@ -15,6 +15,17 @@ DEFAULT_OPEN_TIMEOUT_MS = 0
 DEFAULT_TIMEOUT_MS = 2000
 
 
+def normalize_backend_argument(backend: str | None) -> str:
+    if not backend:
+        return ""
+    normalized = backend.strip()
+    if not normalized:
+        return ""
+    if "@" in normalized:
+        return normalized
+    return f"@{normalized}"
+
+
 @dataclass(slots=True)
 class ServerConfig:
     server_name: str = DEFAULT_SERVER_NAME
@@ -59,8 +70,4 @@ class ServerConfig:
 
     @property
     def backend_argument(self) -> str:
-        if not self.default_backend:
-            return ""
-        if self.default_backend.startswith("@"):
-            return self.default_backend
-        return f"@{self.default_backend}"
+        return normalize_backend_argument(self.default_backend)

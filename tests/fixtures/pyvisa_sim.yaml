@@ -1,0 +1,14 @@
+spec: "1.1"
+devices:
+  instrument:
+    eom:
+      ASRL INSTR:
+        q: "\r\n"
+        r: "\n"
+    dialogues:
+      - q: "*IDN?"
+        r: "PYVISA-MCP,SIM,0.1"
+
+resources:
+  ASRL2::INSTR:
+    device: instrument

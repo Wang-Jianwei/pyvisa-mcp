@@ -24,6 +24,7 @@ class SessionRegistryTests(unittest.TestCase):
         snapshot = registry.list_summaries()
 
         self.assertEqual(len(snapshot.sessions), 1)
+        self.assertEqual(snapshot.session_count, 1)
         self.assertEqual(snapshot.sessions[0].session_id, summary.session_id)
         self.assertEqual(snapshot.sessions[0].resource_name, "GPIB0::1::INSTR")
         self.assertEqual(snapshot.sessions[0].timeout_ms, 2000)
@@ -36,6 +37,7 @@ class SessionRegistryTests(unittest.TestCase):
         result = registry.close(summary.session_id, close_callback=lambda handle: handle.close())
 
         self.assertTrue(result.closed)
+        self.assertEqual(result.resource_name, "USB0::1::INSTR")
         self.assertTrue(resource.closed)
         self.assertEqual(len(registry.list_summaries().sessions), 0)
 

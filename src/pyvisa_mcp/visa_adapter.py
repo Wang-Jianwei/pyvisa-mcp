@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .config import normalize_backend_argument
 from .schemas import BackendStatus, OperationError, ResourceInfoDetails, ResourceInfoResult, VisibleResource, VisibleResourcesResult
 
 
@@ -24,11 +25,7 @@ class VisaAdapter:
 
     @property
     def backend_argument(self) -> str:
-        if not self._default_backend:
-            return ""
-        if self._default_backend.startswith("@"):
-            return self._default_backend
-        return f"@{self._default_backend}"
+        return normalize_backend_argument(self._default_backend)
 
     def backend_status(self) -> BackendStatus:
         pyvisa, import_error = self._try_import_pyvisa()
@@ -67,7 +64,11 @@ class VisaAdapter:
             resources = manager.list_resources(query)
             info_map = manager.list_resources_info(query)
         except Exception as exc:
-            return VisibleResourcesResult(query=query, error=operation_error_from_exception(exc))
+            return VisibleResourcesResult(
+                query=query,
+                backend_hint=self.backend_argument or None,
+                error=operation_error_from_exception(exc),
+            )
 
         visible_resources: list[VisibleResource] = []
         for resource_name in resources:
@@ -80,7 +81,12 @@ class VisaAdapter:
                     resource_class=getattr(info, "resource_class", None) if info is not None else None,
                 )
             )
-        return VisibleResourcesResult(query=query, resources=visible_resources)
+        return VisibleResourcesResult(
+            query=query,
+            backend_hint=self.backend_argument or None,
+            resource_count=len(visible_resources),
+            resources=visible_resources,
+        )
 
     def open_resource(
         self,
@@ -129,10 +135,12 @@ class VisaAdapter:
         except Exception as exc:
             return ResourceInfoResult(
                 resource_name=resource_name,
+                backend_hint=self.backend_argument or None,
                 error=operation_error_from_exception(exc),
             )
         return ResourceInfoResult(
             resource_name=resource_name,
+            backend_hint=self.backend_argument or None,
             info=ResourceInfoDetails(
                 interface_type=self._stringify(getattr(info, "interface_type", None)),
                 interface_board_number=getattr(info, "interface_board_number", None),

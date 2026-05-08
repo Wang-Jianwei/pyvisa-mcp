@@ -7,6 +7,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pyvisa_mcp.config import ServerConfig
+from pyvisa_mcp.schemas import AttributeResult, ResourceInfoResult, VisibleResourcesResult
 from pyvisa_mcp.session_registry import SessionRegistry
 from pyvisa_mcp.tools import coerce_attribute_value, register_tools
 
@@ -45,7 +46,12 @@ class DummyAdapter:
 
     def list_visible_resources(self, query: str):
         self.last_list_query = query
-        return {"query": query, "resources": ["TCPIP0::1::INSTR"]}
+        return VisibleResourcesResult(
+            query=query,
+            backend_hint="@sim",
+            resource_count=1,
+            resources=[],
+        )
 
     def backend_status(self):  # pragma: no cover - not used here
         raise NotImplementedError
@@ -73,7 +79,7 @@ class DummyAdapter:
         return f"QUERY:{command}:delay={delay_s}"
 
     def read_resource_info(self, resource_name: str):
-        return {"resource_name": resource_name, "info": {"resource_class": "INSTR"}}
+        return ResourceInfoResult(resource_name=resource_name)
 
     def get_attribute(self, resource: DummyResource, attribute: str):  # pragma: no cover - not used here
         return getattr(resource, attribute)
@@ -126,7 +132,9 @@ class ToolsTests(unittest.TestCase):
 
         result = list_visible_resources("?*")
 
-        self.assertEqual(result["query"], "?*")
+        self.assertEqual(result.query, "?*")
+        self.assertEqual(result.backend_hint, "@sim")
+        self.assertEqual(result.resource_count, 1)
         self.assertEqual(self.adapter.last_list_query, "?*")
 
     def test_open_query_and_close_resource_session_flow(self) -> None:
@@ -146,8 +154,12 @@ class ToolsTests(unittest.TestCase):
 
         self.assertEqual(self.adapter.last_open_request["resource_name"], "TCPIP0::1::INSTR")
         self.assertEqual(self.adapter.last_open_request["open_timeout_ms"], 10)
+        self.assertEqual(open_result.resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(query_result.response, "QUERY:*IDN?:delay=0.1")
+        self.assertEqual(query_result.resource_name, "TCPIP0::1::INSTR")
+        self.assertEqual(query_result.delay_s, 0.1)
         self.assertTrue(close_result.closed)
+        self.assertEqual(close_result.resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(len(self.adapter.closed_resources), 1)
 
     def test_open_resource_session_returns_structured_error_on_adapter_failure(self) -> None:
@@ -159,6 +171,7 @@ class ToolsTests(unittest.TestCase):
         open_resource_session = mcp.tools["open_resource_session"]
         result = open_resource_session("TCPIP0::1::INSTR")
 
+        self.assertEqual(result.resource_name, "TCPIP0::1::INSTR")
         self.assertIsNone(result.session)
         self.assertIsNotNone(result.error)
         self.assertEqual(result.error.code, "RuntimeError")
@@ -170,6 +183,7 @@ class ToolsTests(unittest.TestCase):
         result = query_message("missing-session", "*IDN?")
 
         self.assertIsNone(result.response)
+        self.assertEqual(result.delay_s, None)
         self.assertIsNotNone(result.error)
         self.assertEqual(result.error.code, "UnknownSessionError")
 
@@ -184,6 +198,7 @@ class ToolsTests(unittest.TestCase):
         result = query_message(session.session_id, "*IDN?")
 
         self.assertIsNone(result.response)
+        self.assertEqual(result.resource_name, None)
         self.assertIsNotNone(result.error)
         self.assertEqual(result.error.code, "RuntimeError")
         self.assertEqual(result.error.message, "query failed")
@@ -194,6 +209,7 @@ class ToolsTests(unittest.TestCase):
         result = close_resource_session("missing-session")
 
         self.assertFalse(result.closed)
+        self.assertIsNone(result.resource_name)
         self.assertIsNotNone(result.error)
         self.assertEqual(result.error.code, "unknown_session")
 
@@ -210,6 +226,7 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(timeout_result.value, 3000)
         self.assertIsNone(read_term_result.value)
         self.assertEqual(delay_result.value, 0.5)
+        self.assertEqual(delay_result.resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(snapshot.sessions[0].timeout_ms, 3000)
         self.assertIsNone(snapshot.sessions[0].read_termination)
         self.assertEqual(snapshot.sessions[0].query_delay_s, 0.5)

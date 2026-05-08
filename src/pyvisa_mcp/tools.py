@@ -114,9 +114,12 @@ def register_tools(
                 query_delay_s=query_delay_s,
                 chunk_size=chunk_size,
             )
-            return OpenResourceResult(session=session)
+            return OpenResourceResult(resource_name=resource_name, session=session)
         except Exception as exc:
-            return OpenResourceResult(error=operation_error_from_exception(exc))
+            return OpenResourceResult(
+                resource_name=resource_name,
+                error=operation_error_from_exception(exc),
+            )
 
     @mcp.tool(name="close_resource_session")
     def close_resource_session(session_id: str) -> CloseResourceResult:
@@ -148,6 +151,7 @@ def register_tools(
             return WriteMessageResult(
                 session_id=session_id,
                 message=message,
+                resource_name=managed.resource_name,
                 bytes_written=bytes_written,
             )
         except Exception as exc:
@@ -163,7 +167,11 @@ def register_tools(
         try:
             managed = registry.require(session_id)
             data = adapter.read_message(managed.resource)
-            return ReadMessageResult(session_id=session_id, data=data)
+            return ReadMessageResult(
+                session_id=session_id,
+                resource_name=managed.resource_name,
+                data=data,
+            )
         except Exception as exc:
             return ReadMessageResult(
                 session_id=session_id,
@@ -179,12 +187,15 @@ def register_tools(
             return QueryMessageResult(
                 session_id=session_id,
                 command=command,
+                resource_name=managed.resource_name,
+                delay_s=delay_s,
                 response=response,
             )
         except Exception as exc:
             return QueryMessageResult(
                 session_id=session_id,
                 command=command,
+                delay_s=delay_s,
                 error=operation_error_from_exception(exc),
             )
 
@@ -199,7 +210,12 @@ def register_tools(
         try:
             managed = registry.require(session_id)
             value = adapter.get_attribute(managed.resource, attribute)
-            return AttributeResult(session_id=session_id, attribute=attribute, value=value)
+            return AttributeResult(
+                session_id=session_id,
+                attribute=attribute,
+                resource_name=managed.resource_name,
+                value=value,
+            )
         except Exception as exc:
             return AttributeResult(
                 session_id=session_id,
@@ -227,7 +243,12 @@ def register_tools(
                 registry.update_runtime_settings(session_id, query_delay_s=float(updated_value))
             elif attribute == "chunk_size":
                 registry.update_runtime_settings(session_id, chunk_size=int(updated_value))
-            return AttributeResult(session_id=session_id, attribute=attribute, value=updated_value)
+            return AttributeResult(
+                session_id=session_id,
+                attribute=attribute,
+                resource_name=managed.resource_name,
+                value=updated_value,
+            )
         except Exception as exc:
             return AttributeResult(
                 session_id=session_id,

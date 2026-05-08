@@ -48,9 +48,10 @@ The code currently provides:
 
 - a FastMCP server factory and entrypoint
 - a `ServerConfig` environment-backed configuration model
+- backend argument normalization that supports both shorthand backends and explicit `profile.yaml@sim` sim backends
 - a `VisaAdapter` with lazy PyVISA integration boundaries
 - a `SessionRegistry` for MCP-managed resource sessions
-- first-pass dataclass-based schemas for tools and resources
+- dataclass-based schemas for tools and resources with result counts and operation context
 - first-pass tool and resource registration functions
 
 ## First tool set
@@ -88,5 +89,7 @@ The repository now has stdlib-only tests for:
 - mocked tool flow for list/open/query/close
 - mocked `VisaAdapter` behavior for resource discovery, open, message operations, and resource info reads
 - structured error returns for adapter and tool failure paths
+- passive resource JSON serialization with counts and capability inventory
+- `pyvisa-sim` smoke validation through a custom repository-local sim profile
 
-The next verification step should focus on higher-fidelity mocked PyVISA error paths and, when available, sim-backend smoke tests.
+The next verification step should focus on higher-fidelity session and server integration checks, plus broader sim-profile command coverage beyond the current `*IDN?` smoke path.

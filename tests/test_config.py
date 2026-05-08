@@ -29,6 +29,10 @@ class ServerConfigTests(unittest.TestCase):
         config = ServerConfig(default_backend="@sim")
         self.assertEqual(config.backend_argument, "@sim")
 
+    def test_backend_argument_keeps_explicit_sim_profile_backend(self) -> None:
+        config = ServerConfig(default_backend="tests/fixtures/pyvisa_sim.yaml@sim")
+        self.assertEqual(config.backend_argument, "tests/fixtures/pyvisa_sim.yaml@sim")
+
     def test_from_env_reads_expected_fields(self) -> None:
         with patch.dict(
             os.environ,
