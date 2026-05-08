@@ -1,0 +1,75 @@
+# PyVISA MCP
+
+PyVISA MCP is a Python MCP server project for instrument control. It is being built around PyVISA for device communication and FastMCP for protocol exposure.
+
+This repository is intentionally dual-purpose:
+- a Python implementation workspace
+- an LLM-maintained project wiki under `raw/` and `wiki/`
+
+## Current status
+
+The repository currently includes:
+- wiki bootstrap and project records
+- initial raw research notes for PyVISA, MCP, SCPI, and project decisions
+- a first Python package scaffold
+- a first FastMCP server entrypoint and typed tool/resource schema layer
+
+## Planned implementation path
+
+1. Python package scaffold
+2. FastMCP server entrypoint
+3. PyVISA adapter layer
+4. Session registry
+5. Tool and resource schema refinement
+6. Tests and environment diagnostics
+
+## Install
+
+Using `uv`:
+
+```bash
+uv sync
+```
+
+Using `pip`:
+
+```bash
+pip install -e .
+```
+
+## Run
+
+```bash
+python -m pyvisa_mcp.server
+```
+
+Or, after installation:
+
+```bash
+pyvisa-mcp
+```
+
+## First exposed capabilities
+
+Tools:
+- list visible resources
+- open resource
+- close resource
+- write message
+- read message
+- query message
+- inspect resource info
+- get backend diagnostics
+- get/set resource attributes
+
+Resources:
+- backend status
+- visible resource inventory
+- current session registry snapshot
+- project capability summary
+
+## Knowledge base entry points
+
+- `AGENTS.md` for repository workflow rules
+- `wiki/index.md` for the maintained knowledge index
+- `wiki/log.md` for the chronological activity log

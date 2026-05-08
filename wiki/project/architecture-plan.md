@@ -13,7 +13,7 @@ source_notes:
   - ../../raw/notes/2026-05-08-scpi-basics.md
 ---
 
-# Architecture Plan
+## Architecture Plan
 
 ## Phase order
 
@@ -34,6 +34,24 @@ source_notes:
 - `schemas.py` - input/output models for tools and resources
 - `tools.py` - action-oriented MCP tools
 - `resources.py` - passive context resources
+
+## Current scaffold output
+
+The repository now includes a first-pass Python scaffold matching the proposed split:
+
+- `pyproject.toml` for packaging and dependencies
+- `README.md` for project entry instructions
+- `src/pyvisa_mcp/` for the main package
+- `tests/` for the first stdlib-only bootstrap tests
+
+The code currently provides:
+
+- a FastMCP server factory and entrypoint
+- a `ServerConfig` environment-backed configuration model
+- a `VisaAdapter` with lazy PyVISA integration boundaries
+- a `SessionRegistry` for MCP-managed resource sessions
+- first-pass dataclass-based schemas for tools and resources
+- first-pass tool and resource registration functions
 
 ## First tool set
 
@@ -59,3 +77,15 @@ source_notes:
 - unit tests with mocks around adapter and registry logic
 - sim-backend or shell-assisted validation where practical
 - real hardware smoke tests only as a second layer
+
+## Current verification depth
+
+The repository now has stdlib-only tests for:
+
+- configuration defaults and environment overrides
+- session registry open/close behavior
+- tool-layer attribute coercion and session updates
+- mocked tool flow for list/open/query/close
+- mocked `VisaAdapter` behavior for resource discovery, open, message operations, and resource info reads
+
+The next verification step should focus on higher-fidelity mocked PyVISA error paths and, when available, sim-backend smoke tests.
