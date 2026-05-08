@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Annotated
 from typing import Any
+
+from pydantic import Field
 
 from .config import ServerConfig
 from .schemas import AttributeResult, BackendStatus, CloseResourceResult, OpenResourceResult, QueryMessageResult, ReadMessageResult, ResourceInfoResult, VisibleResourcesResult, WriteMessageResult
@@ -8,6 +11,59 @@ from .session_registry import SessionRegistry, UnknownSessionError
 from .visa_adapter import VisaAdapter, operation_error_from_exception
 
 AttributeValue = str | int | float | bool | None
+
+ResourceQueryArg = Annotated[
+    str,
+    Field(description="VISA resource query pattern, for example '?*::INSTR' or a more specific interface filter."),
+]
+ResourceNameArg = Annotated[
+    str,
+    Field(description="Fully qualified VISA resource name to open or inspect, for example 'TCPIP0::1::INSTR'."),
+]
+SessionIdArg = Annotated[
+    str,
+    Field(description="Session identifier returned by open_resource_session and reused by read, write, query, close, and attribute tools."),
+]
+MessageArg = Annotated[
+    str,
+    Field(description="Raw instrument command or payload to send through the opened VISA session."),
+]
+CommandArg = Annotated[
+    str,
+    Field(description="SCPI or device-specific query command expected to return a response, for example '*IDN?'."),
+]
+OpenTimeoutArg = Annotated[
+    int,
+    Field(description="Open timeout in milliseconds used only while establishing the VISA resource handle."),
+]
+TimeoutArg = Annotated[
+    int,
+    Field(description="Session I/O timeout in milliseconds applied after the resource opens."),
+]
+ReadTerminationArg = Annotated[
+    str | None,
+    Field(description="Optional read termination string such as '\\n'; null leaves the resource default unchanged."),
+]
+WriteTerminationArg = Annotated[
+    str | None,
+    Field(description="Optional write termination string such as '\\n'; null leaves the resource default unchanged."),
+]
+QueryDelayArg = Annotated[
+    float | None,
+    Field(description="Optional delay in seconds inserted before reading a query response or set as the resource query_delay."),
+]
+ChunkSizeArg = Annotated[
+    int | None,
+    Field(description="Optional VISA read chunk size in bytes for the opened resource; null keeps the backend default."),
+]
+AttributeNameArg = Annotated[
+    str,
+    Field(description="Python-level or VISA-level attribute name. Common runtime attributes are timeout, read_termination, write_termination, query_delay, and chunk_size."),
+]
+AttributeValueArg = Annotated[
+    AttributeValue,
+    Field(description="Attribute value to set. Strings are coerced for common runtime attributes, and 'null'/'none' clear supported termination attributes."),
+]
 
 _INTEGER_ATTRIBUTES = {"timeout", "chunk_size"}
 _FLOAT_ATTRIBUTES = {"query_delay"}
@@ -75,7 +131,7 @@ def register_tools(
     config: ServerConfig,
 ) -> None:
     @mcp.tool(name="list_visible_resources")
-    def list_visible_resources(query: str = config.default_resource_query) -> VisibleResourcesResult:
+    def list_visible_resources(query: ResourceQueryArg = config.default_resource_query) -> VisibleResourcesResult:
         """List VISA resources visible through the configured backend."""
         return adapter.list_visible_resources(query)
 
@@ -86,13 +142,13 @@ def register_tools(
 
     @mcp.tool(name="open_resource_session")
     def open_resource_session(
-        resource_name: str,
-        open_timeout_ms: int = config.default_open_timeout_ms,
-        timeout_ms: int = config.default_timeout_ms,
-        read_termination: str | None = None,
-        write_termination: str | None = None,
-        query_delay_s: float | None = None,
-        chunk_size: int | None = None,
+        resource_name: ResourceNameArg,
+        open_timeout_ms: OpenTimeoutArg = config.default_open_timeout_ms,
+        timeout_ms: TimeoutArg = config.default_timeout_ms,
+        read_termination: ReadTerminationArg = None,
+        write_termination: WriteTerminationArg = None,
+        query_delay_s: QueryDelayArg = None,
+        chunk_size: ChunkSizeArg = None,
     ) -> OpenResourceResult:
         """Open a VISA resource and register it as an MCP-managed session."""
         try:
@@ -122,7 +178,7 @@ def register_tools(
             )
 
     @mcp.tool(name="close_resource_session")
-    def close_resource_session(session_id: str) -> CloseResourceResult:
+    def close_resource_session(session_id: SessionIdArg) -> CloseResourceResult:
         """Close a previously opened MCP-managed VISA session."""
         try:
             return registry.close(session_id, close_callback=adapter.close_resource)
@@ -143,7 +199,7 @@ def register_tools(
             )
 
     @mcp.tool(name="write_message")
-    def write_message(session_id: str, message: str) -> WriteMessageResult:
+    def write_message(session_id: SessionIdArg, message: MessageArg) -> WriteMessageResult:
         """Write a message to an opened session."""
         try:
             managed = registry.require(session_id)
@@ -162,7 +218,7 @@ def register_tools(
             )
 
     @mcp.tool(name="read_message")
-    def read_message(session_id: str) -> ReadMessageResult:
+    def read_message(session_id: SessionIdArg) -> ReadMessageResult:
         """Read a message from an opened session."""
         try:
             managed = registry.require(session_id)
@@ -179,7 +235,11 @@ def register_tools(
             )
 
     @mcp.tool(name="query_message")
-    def query_message(session_id: str, command: str, delay_s: float | None = None) -> QueryMessageResult:
+    def query_message(
+        session_id: SessionIdArg,
+        command: CommandArg,
+        delay_s: QueryDelayArg = None,
+    ) -> QueryMessageResult:
         """Issue a query command to an opened session and return the response."""
         try:
             managed = registry.require(session_id)
@@ -200,12 +260,12 @@ def register_tools(
             )
 
     @mcp.tool(name="inspect_resource_info")
-    def inspect_resource_info(resource_name: str) -> ResourceInfoResult:
+    def inspect_resource_info(resource_name: ResourceNameArg) -> ResourceInfoResult:
         """Read extended resource information for a resource name."""
         return adapter.read_resource_info(resource_name)
 
     @mcp.tool(name="get_resource_attribute")
-    def get_resource_attribute(session_id: str, attribute: str) -> AttributeResult:
+    def get_resource_attribute(session_id: SessionIdArg, attribute: AttributeNameArg) -> AttributeResult:
         """Read a Python-level or VISA-level attribute from an opened resource."""
         try:
             managed = registry.require(session_id)
@@ -224,7 +284,11 @@ def register_tools(
             )
 
     @mcp.tool(name="set_resource_attribute")
-    def set_resource_attribute(session_id: str, attribute: str, value: AttributeValue) -> AttributeResult:
+    def set_resource_attribute(
+        session_id: SessionIdArg,
+        attribute: AttributeNameArg,
+        value: AttributeValueArg,
+    ) -> AttributeResult:
         """Set a Python-level or VISA-level attribute on an opened resource."""
         try:
             managed = registry.require(session_id)

@@ -243,3 +243,37 @@ Files added or updated
 Why it matters
 
 - The new CLI is not only syntactically present; it now has proof that it can drive a real stdio MCP session through the same sim-backed path used by the rest of the repository validation story.
+
+## [2026-05-08] implementation | enrich tool parameter schemas for agents
+
+What changed
+
+- Added parameter-level schema descriptions to the MCP tools using typed annotations and Pydantic field metadata.
+- Clarified the semantics of resource names, session IDs, timeouts, termination strings, query delays, attribute names, and attribute values at the schema layer instead of leaving agents to infer them from names alone.
+
+Files added or updated
+
+- `src/pyvisa_mcp/tools.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- Agent-facing tool discovery now carries more of the operational meaning needed to choose correct arguments without reading implementation code.
+
+## [2026-05-08] verification | lock parameter descriptions into server schemas
+
+What changed
+
+- Added a server integration test that inspects the FastMCP-exposed tool schemas and asserts that key parameter descriptions are present.
+- Re-ran the focused server integration slice to verify the richer schema metadata is actually visible through the MCP surface.
+
+Files added or updated
+
+- `tests/test_server.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- This prevents future refactors from silently dropping the schema descriptions that agents rely on when selecting tool arguments.
