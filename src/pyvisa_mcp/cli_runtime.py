@@ -124,8 +124,9 @@ class CliRuntime:
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         result = await self.session.call_tool(name, arguments)
-        if result.structuredContent is not None:
-            return dict(result.structuredContent)
+        structured_content = getattr(result, "structuredContent", None)
+        if structured_content is not None:
+            return dict(structured_content)
 
         text_fragments = [item.text for item in result.content if hasattr(item, "text")]
         if len(text_fragments) == 1:

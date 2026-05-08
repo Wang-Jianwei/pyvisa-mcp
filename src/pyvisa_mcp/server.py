@@ -12,6 +12,13 @@ from .tools import TOOL_NAMES, register_tools
 from .visa_adapter import VisaAdapter
 
 
+def _preload_pyvisa_import() -> None:
+    try:
+        import pyvisa  # type: ignore  # noqa: F401
+    except Exception:
+        return
+
+
 def create_server(config: ServerConfig | None = None) -> FastMCP:
     config = config or ServerConfig.from_env()
     adapter = VisaAdapter(
@@ -46,6 +53,8 @@ def create_server(config: ServerConfig | None = None) -> FastMCP:
 
 def main() -> None:
     config = ServerConfig.from_env()
+    if config.preferred_transport == "stdio":
+        _preload_pyvisa_import()
     mcp = create_server(config)
     mcp.run(transport=config.preferred_transport)
 

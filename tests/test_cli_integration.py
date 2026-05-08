@@ -8,8 +8,36 @@ import sys
 import unittest
 
 
-@unittest.skipUnless(importlib.util.find_spec("pyvisa_sim") is not None, "pyvisa-sim is not installed")
 class CliIntegrationTests(unittest.TestCase):
+    def test_cli_backend_command_returns_json_payload(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        env = os.environ.copy()
+        existing_pythonpath = env.get("PYTHONPATH")
+        src_path = str(root / "src")
+        env["PYTHONPATH"] = src_path if not existing_pythonpath else os.pathsep.join([src_path, existing_pythonpath])
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pyvisa_mcp.cli",
+                "--json",
+                "--no-prompt",
+            ],
+            input="backend\nexit\n",
+            capture_output=True,
+            text=True,
+            cwd=root,
+            env=env,
+            check=False,
+            timeout=20,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn('"available":', completed.stdout)
+        self.assertIn('"resource_manager_ready":', completed.stdout)
+
+    @unittest.skipUnless(importlib.util.find_spec("pyvisa_sim") is not None, "pyvisa-sim is not installed")
     def test_cli_repl_can_drive_sim_backend_from_piped_input(self) -> None:
         root = Path(__file__).resolve().parents[1]
         profile = Path(__file__).resolve().parent / "fixtures" / "pyvisa_sim.yaml"
