@@ -186,3 +186,20 @@ Files added or updated
 Why it matters
 
 - The project now has a real backend-backed validation layer between pure mocks and physical hardware, which reduces risk in the PyVISA integration boundary.
+
+## [2026-05-08] verification | add server-level fastmcp integration checks
+
+What changed
+
+- Added async integration tests against `create_server()` using FastMCP public APIs such as `list_tools`, `list_resources`, `call_tool`, and `read_resource`.
+- Verified that the server registers the expected tool and resource inventory and that a sim-backed open/query/close session flow updates the session resource snapshot correctly.
+
+Files added or updated
+
+- `tests/test_server.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The project now validates the MCP surface one layer above the adapter and registration helpers, reducing the chance that wiring or FastMCP integration regressions slip past the lower-level tests.

@@ -91,5 +91,6 @@ The repository now has stdlib-only tests for:
 - structured error returns for adapter and tool failure paths
 - passive resource JSON serialization with counts and capability inventory
 - `pyvisa-sim` smoke validation through a custom repository-local sim profile
+- server-level FastMCP integration checks for registered tools, registered resources, and session-backed tool flow
 
-The next verification step should focus on higher-fidelity session and server integration checks, plus broader sim-profile command coverage beyond the current `*IDN?` smoke path.
+The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` path and, later, transport-level end-to-end checks around actual MCP client/server execution.
