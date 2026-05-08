@@ -17,6 +17,7 @@ The repository currently includes:
 - a first FastMCP server entrypoint and typed tool/resource schema layer
 - context-rich tool and resource result models with counts and resource metadata
 - a sim-backed smoke test path using `pyvisa-sim` custom profiles
+- a first interactive CLI mode that launches the local server and talks to it through a real MCP stdio session
 
 ## Planned implementation path
 
@@ -59,6 +60,35 @@ Or, after installation:
 pyvisa-mcp
 ```
 
+## CLI
+
+Launch the interactive CLI against the local server:
+
+```bash
+pyvisa-mcp-cli
+```
+
+Launch it against the repository-local sim backend:
+
+```bash
+pyvisa-mcp-cli --backend tests/fixtures/pyvisa_sim.yaml@sim
+```
+
+Useful first commands inside the REPL:
+
+- `help`
+- `backend`
+- `visible ?*`
+- `open ASRL2::INSTR --timeout-ms 2500`
+- `query "*IDN?"`
+- `close`
+- `exit`
+
+For debugging and automated interaction, the CLI also supports:
+
+- `--json` to render responses as JSON
+- `--no-prompt` to suppress the prompt when driving the REPL from piped stdin
+
 ## Test
 
 ```bash
@@ -66,6 +96,7 @@ python -m unittest discover -s tests
 ```
 
 The sim-backed smoke test uses a repository-local `pyvisa-sim` profile and exercises the adapter through a real `profile.yaml@sim` backend argument.
+The CLI integration test also drives that same sim backend through a real stdio MCP session.
 
 ## First exposed capabilities
 

@@ -203,3 +203,43 @@ Files added or updated
 Why it matters
 
 - The project now validates the MCP surface one layer above the adapter and registration helpers, reducing the chance that wiring or FastMCP integration regressions slip past the lower-level tests.
+
+## [2026-05-08] implementation | add interactive cli mode
+
+What changed
+
+- Added a new `pyvisa-mcp-cli` console entrypoint for launching a local interactive terminal against the project server.
+- Implemented a CLI runtime that starts the server as a subprocess, opens a real MCP stdio session, and maps REPL commands onto the existing tools and resources.
+- Added first-pass REPL commands for backend diagnostics, resource listing, session lifecycle, message operations, resource reads, and attribute access.
+
+Files added or updated
+
+- `pyproject.toml`
+- `src/pyvisa_mcp/cli.py`
+- `src/pyvisa_mcp/cli_runtime.py`
+- `README.md`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The repository now has a practical terminal interface for real MCP-shaped interaction and debugging, without bypassing the stdio transport layer.
+
+## [2026-05-08] verification | validate cli repl against sim backend
+
+What changed
+
+- Added focused CLI command tests for session reuse, JSON output mode switching, and missing-session errors.
+- Added a process-level CLI integration test that pipes commands through the REPL while it talks to the repository-local `pyvisa-sim` backend.
+- Re-ran the focused CLI test slice to confirm the first implementation batch works end to end.
+
+Files added or updated
+
+- `tests/test_cli.py`
+- `tests/test_cli_integration.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The new CLI is not only syntactically present; it now has proof that it can drive a real stdio MCP session through the same sim-backed path used by the rest of the repository validation story.

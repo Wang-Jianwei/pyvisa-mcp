@@ -29,6 +29,8 @@ source_notes:
 
 - `server.py` - FastMCP entrypoint and lifespan wiring
 - `config.py` - runtime configuration for backend selection and environment handling
+- `cli.py` - interactive terminal entrypoint for local MCP-driven testing and operator workflows
+- `cli_runtime.py` - stdio client/session bridge and REPL command dispatch
 - `visa_adapter.py` - concentrated PyVISA integration and error normalization
 - `session_registry.py` - opened resource lifecycle and MCP-facing session IDs
 - `schemas.py` - input/output models for tools and resources
@@ -48,6 +50,7 @@ The code currently provides:
 
 - a FastMCP server factory and entrypoint
 - a `ServerConfig` environment-backed configuration model
+- a CLI runtime that launches the local server and reuses the official MCP stdio client/session APIs
 - backend argument normalization that supports both shorthand backends and explicit `profile.yaml@sim` sim backends
 - a `VisaAdapter` with lazy PyVISA integration boundaries
 - a `SessionRegistry` for MCP-managed resource sessions
@@ -92,5 +95,7 @@ The repository now has stdlib-only tests for:
 - passive resource JSON serialization with counts and capability inventory
 - `pyvisa-sim` smoke validation through a custom repository-local sim profile
 - server-level FastMCP integration checks for registered tools, registered resources, and session-backed tool flow
+- CLI command dispatch tests for REPL session reuse and output mode changes
+- CLI process integration against the repository-local sim backend over a real stdio MCP session
 
-The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` path and, later, transport-level end-to-end checks around actual MCP client/server execution.
+The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` path, plus richer CLI command coverage for attribute and resource-info workflows.

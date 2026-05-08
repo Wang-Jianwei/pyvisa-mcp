@@ -27,6 +27,7 @@ sim = [
 
 [project.scripts]
 pyvisa-mcp = "pyvisa_mcp.server:main"
+pyvisa-mcp-cli = "pyvisa_mcp.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
