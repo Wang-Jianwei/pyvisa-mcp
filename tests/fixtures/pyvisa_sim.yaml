@@ -8,6 +8,8 @@ devices:
     dialogues:
       - q: "*IDN?"
         r: "PYVISA-MCP,SIM,0.1"
+      - q: "*idn?"
+        r: "PYVISA-MCP,SIM,0.1"
 
 resources:
   ASRL2::INSTR:
