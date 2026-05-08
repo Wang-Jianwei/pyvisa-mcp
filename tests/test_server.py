@@ -42,6 +42,20 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Common runtime attributes", attribute_schema["attribute"]["description"])
         self.assertIn("Attribute value to set", attribute_schema["value"]["description"])
 
+    async def test_tool_schemas_include_parameter_examples(self) -> None:
+        tools = await self.server.list_tools()
+        tools_by_name = {tool.name: tool for tool in tools}
+
+        open_schema = tools_by_name["open_resource_session"].inputSchema["properties"]
+        query_schema = tools_by_name["query_message"].inputSchema["properties"]
+        attribute_schema = tools_by_name["set_resource_attribute"].inputSchema["properties"]
+
+        self.assertIn("ASRL2::INSTR", open_schema["resource_name"]["examples"])
+        self.assertIn(5000, open_schema["open_timeout_ms"]["examples"])
+        self.assertIn("*IDN?", query_schema["command"]["examples"])
+        self.assertIn("timeout", attribute_schema["attribute"]["examples"])
+        self.assertIn("3000", attribute_schema["value"]["examples"])
+
     async def test_tool_output_schemas_include_result_descriptions(self) -> None:
         tools = await self.server.list_tools()
         tools_by_name = {tool.name: tool for tool in tools}
@@ -54,6 +68,20 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Structured error when the open operation fails", open_schema["properties"]["error"]["description"])
         self.assertIn("String response returned by the instrument", query_schema["properties"]["response"]["description"])
         self.assertIn("Machine-readable error code", query_schema["$defs"]["OperationError"]["properties"]["code"]["description"])
+
+    async def test_tool_output_schemas_include_result_examples(self) -> None:
+        tools = await self.server.list_tools()
+        tools_by_name = {tool.name: tool for tool in tools}
+
+        open_schema = tools_by_name["open_resource_session"].outputSchema
+        query_schema = tools_by_name["query_message"].outputSchema
+        attribute_schema = tools_by_name["get_resource_attribute"].outputSchema
+
+        self.assertIn("ASRL2::INSTR", open_schema["properties"]["resource_name"]["examples"])
+        self.assertIn("12345678-1234-4123-8123-123456789abc", open_schema["$defs"]["SessionSummary"]["properties"]["session_id"]["examples"])
+        self.assertIn("PYVISA-MCP,SIM,0.1\n", query_schema["properties"]["response"]["examples"])
+        self.assertIn("unknown_session", query_schema["$defs"]["OperationError"]["properties"]["code"]["examples"])
+        self.assertIn("timeout", attribute_schema["properties"]["attribute"]["examples"])
 
     async def test_capability_and_backend_resources_match_server_contract(self) -> None:
         capability_payload = json.loads((await self.server.read_resource("pyvisa-mcp://capabilities"))[0].content)

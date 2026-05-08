@@ -14,55 +14,94 @@ AttributeValue = str | int | float | bool | None
 
 ResourceQueryArg = Annotated[
     str,
-    Field(description="VISA resource query pattern, for example '?*::INSTR' or a more specific interface filter."),
+    Field(
+        description="VISA resource query pattern, for example '?*::INSTR' or a more specific interface filter.",
+        examples=["?*::INSTR", "TCPIP?*::INSTR"],
+    ),
 ]
 ResourceNameArg = Annotated[
     str,
-    Field(description="Fully qualified VISA resource name to open or inspect, for example 'TCPIP0::1::INSTR'."),
+    Field(
+        description="Fully qualified VISA resource name to open or inspect, for example 'TCPIP0::1::INSTR'.",
+        examples=["TCPIP0::1::INSTR", "ASRL2::INSTR"],
+    ),
 ]
 SessionIdArg = Annotated[
     str,
-    Field(description="Session identifier returned by open_resource_session and reused by read, write, query, close, and attribute tools."),
+    Field(
+        description="Session identifier returned by open_resource_session and reused by read, write, query, close, and attribute tools.",
+        examples=["12345678-1234-4123-8123-123456789abc"],
+    ),
 ]
 MessageArg = Annotated[
     str,
-    Field(description="Raw instrument command or payload to send through the opened VISA session."),
+    Field(
+        description="Raw instrument command or payload to send through the opened VISA session.",
+        examples=["*RST", "SYST:ERR?"],
+    ),
 ]
 CommandArg = Annotated[
     str,
-    Field(description="SCPI or device-specific query command expected to return a response, for example '*IDN?'."),
+    Field(
+        description="SCPI or device-specific query command expected to return a response, for example '*IDN?'.",
+        examples=["*IDN?", "MEAS:VOLT?"],
+    ),
 ]
 OpenTimeoutArg = Annotated[
     int,
-    Field(description="Open timeout in milliseconds used only while establishing the VISA resource handle."),
+    Field(
+        description="Open timeout in milliseconds used only while establishing the VISA resource handle.",
+        examples=[0, 5000],
+    ),
 ]
 TimeoutArg = Annotated[
     int,
-    Field(description="Session I/O timeout in milliseconds applied after the resource opens."),
+    Field(
+        description="Session I/O timeout in milliseconds applied after the resource opens.",
+        examples=[2000, 10000],
+    ),
 ]
 ReadTerminationArg = Annotated[
     str | None,
-    Field(description="Optional read termination string such as '\\n'; null leaves the resource default unchanged."),
+    Field(
+        description="Optional read termination string such as '\\n'; null leaves the resource default unchanged.",
+        examples=["\n", None],
+    ),
 ]
 WriteTerminationArg = Annotated[
     str | None,
-    Field(description="Optional write termination string such as '\\n'; null leaves the resource default unchanged."),
+    Field(
+        description="Optional write termination string such as '\\n'; null leaves the resource default unchanged.",
+        examples=["\n", None],
+    ),
 ]
 QueryDelayArg = Annotated[
     float | None,
-    Field(description="Optional delay in seconds inserted before reading a query response or set as the resource query_delay."),
+    Field(
+        description="Optional delay in seconds inserted before reading a query response or set as the resource query_delay.",
+        examples=[0.1, 0.5],
+    ),
 ]
 ChunkSizeArg = Annotated[
     int | None,
-    Field(description="Optional VISA read chunk size in bytes for the opened resource; null keeps the backend default."),
+    Field(
+        description="Optional VISA read chunk size in bytes for the opened resource; null keeps the backend default.",
+        examples=[20480, 4096],
+    ),
 ]
 AttributeNameArg = Annotated[
     str,
-    Field(description="Python-level or VISA-level attribute name. Common runtime attributes are timeout, read_termination, write_termination, query_delay, and chunk_size."),
+    Field(
+        description="Python-level or VISA-level attribute name. Common runtime attributes are timeout, read_termination, write_termination, query_delay, and chunk_size.",
+        examples=["timeout", "read_termination", "chunk_size"],
+    ),
 ]
 AttributeValueArg = Annotated[
     AttributeValue,
-    Field(description="Attribute value to set. Strings are coerced for common runtime attributes, and 'null'/'none' clear supported termination attributes."),
+    Field(
+        description="Attribute value to set. Strings are coerced for common runtime attributes, and 'null'/'none' clear supported termination attributes.",
+        examples=["3000", "\n", "null"],
+    ),
 ]
 
 _INTEGER_ATTRIBUTES = {"timeout", "chunk_size"}

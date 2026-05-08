@@ -312,3 +312,38 @@ Files added or updated
 Why it matters
 
 - This prevents future schema refactors from silently regressing the result metadata that agents can use when interpreting tool responses.
+
+## [2026-05-08] implementation | add schema examples for agent guidance
+
+What changed
+
+- Added representative examples to key input schema fields such as resource names, session IDs, commands, timeouts, and attribute values.
+- Added representative examples to key result schema fields such as session identifiers, resource names, responses, attribute values, backend hints, and normalized error codes.
+
+Files added or updated
+
+- `src/pyvisa_mcp/tools.py`
+- `src/pyvisa_mcp/schemas.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- Agents now get concrete examples alongside descriptions, which reduces guesswork when selecting arguments or interpreting common response fields.
+
+## [2026-05-08] verification | lock schema examples into server output
+
+What changed
+
+- Added server integration assertions that inspect FastMCP input and output schemas and verify that key examples are present.
+- Re-ran the focused server schema test slice to confirm the examples survive schema generation.
+
+Files added or updated
+
+- `tests/test_server.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- This prevents future refactors from silently removing the concrete examples that improve agent-side tool selection and result interpretation.

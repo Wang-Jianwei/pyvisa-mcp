@@ -6,22 +6,35 @@ from pydantic import BaseModel, Field
 
 
 class OperationError(BaseModel):
-    code: str = Field(description="Machine-readable error code. By default this is the originating exception class name or a normalized tool-level code.")
-    message: str = Field(description="Human-readable error message explaining why the operation failed.")
+    code: str = Field(
+        description="Machine-readable error code. By default this is the originating exception class name or a normalized tool-level code.",
+        examples=["unknown_session", "RuntimeError"],
+    )
+    message: str = Field(
+        description="Human-readable error message explaining why the operation failed.",
+        examples=["Unknown session: 12345678-1234-4123-8123-123456789abc", "open failed"],
+    )
     details: dict[str, Any] | None = Field(default=None, description="Optional structured error details for future extension.")
 
 
 class BackendStatus(BaseModel):
     available: bool = Field(description="Whether PyVISA and the configured backend are currently available for use.")
     preferred_transport: str = Field(description="Transport the server is currently configured to use, typically 'stdio'.")
-    backend_hint: str | None = Field(default=None, description="Backend argument passed or inferred for ResourceManager creation, such as '@sim' or 'profile.yaml@sim'.")
+    backend_hint: str | None = Field(
+        default=None,
+        description="Backend argument passed or inferred for ResourceManager creation, such as '@sim' or 'profile.yaml@sim'.",
+        examples=["@sim", "tests/fixtures/pyvisa_sim.yaml@sim"],
+    )
     pyvisa_version: str | None = Field(default=None, description="Detected PyVISA version when the import succeeds.")
     resource_manager_ready: bool = Field(default=False, description="Whether a ResourceManager instance could be created successfully.")
     import_error: str | None = Field(default=None, description="Import or initialization error string when the backend is unavailable.")
 
 
 class VisibleResource(BaseModel):
-    resource_name: str = Field(description="Canonical VISA resource name returned by the backend discovery query.")
+    resource_name: str = Field(
+        description="Canonical VISA resource name returned by the backend discovery query.",
+        examples=["ASRL2::INSTR", "TCPIP0::1::INSTR"],
+    )
     alias: str | None = Field(default=None, description="Optional backend alias for the resource when one is configured.")
     interface_type: str | None = Field(default=None, description="Backend-reported interface type for the resource, such as serial, TCPIP, USB, or GPIB.")
     resource_class: str | None = Field(default=None, description="VISA resource class, typically 'INSTR' for instrument sessions.")
@@ -36,8 +49,14 @@ class VisibleResourcesResult(BaseModel):
 
 
 class SessionSummary(BaseModel):
-    session_id: str = Field(description="Opaque MCP-managed session identifier returned after opening a resource.")
-    resource_name: str = Field(description="Resource name currently bound to this MCP-managed session.")
+    session_id: str = Field(
+        description="Opaque MCP-managed session identifier returned after opening a resource.",
+        examples=["12345678-1234-4123-8123-123456789abc"],
+    )
+    resource_name: str = Field(
+        description="Resource name currently bound to this MCP-managed session.",
+        examples=["ASRL2::INSTR"],
+    )
     timeout_ms: int | None = Field(default=None, description="Current session timeout in milliseconds.")
     read_termination: str | None = Field(default=None, description="Current read termination string applied to the session, if any.")
     write_termination: str | None = Field(default=None, description="Current write termination string applied to the session, if any.")
@@ -51,7 +70,10 @@ class SessionRegistrySnapshot(BaseModel):
 
 
 class OpenResourceResult(BaseModel):
-    resource_name: str = Field(description="Resource name requested by the open operation.")
+    resource_name: str = Field(
+        description="Resource name requested by the open operation.",
+        examples=["ASRL2::INSTR"],
+    )
     session: SessionSummary | None = Field(default=None, description="Session details when the resource opens successfully.")
     error: OperationError | None = Field(default=None, description="Structured error when the open operation fails.")
 
@@ -79,11 +101,21 @@ class ReadMessageResult(BaseModel):
 
 
 class QueryMessageResult(BaseModel):
-    session_id: str = Field(description="Session identifier targeted by the query operation.")
-    command: str = Field(description="Query command string that was sent to the instrument.")
+    session_id: str = Field(
+        description="Session identifier targeted by the query operation.",
+        examples=["12345678-1234-4123-8123-123456789abc"],
+    )
+    command: str = Field(
+        description="Query command string that was sent to the instrument.",
+        examples=["*IDN?", "MEAS:VOLT?"],
+    )
     resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
     delay_s: float | None = Field(default=None, description="Optional per-call query delay in seconds used for this query.")
-    response: str | None = Field(default=None, description="String response returned by the instrument for the query.")
+    response: str | None = Field(
+        default=None,
+        description="String response returned by the instrument for the query.",
+        examples=["PYVISA-MCP,SIM,0.1\n", "+1.00000000E+00"],
+    )
     error: OperationError | None = Field(default=None, description="Structured error when the query operation fails.")
 
 
@@ -96,17 +128,30 @@ class ResourceInfoDetails(BaseModel):
 
 
 class ResourceInfoResult(BaseModel):
-    resource_name: str = Field(description="Resource name that was inspected.")
+    resource_name: str = Field(
+        description="Resource name that was inspected.",
+        examples=["ASRL2::INSTR"],
+    )
     backend_hint: str | None = Field(default=None, description="Backend argument used to resolve the resource information, if configured.")
     info: ResourceInfoDetails | None = Field(default=None, description="Extended backend metadata for the target resource when available.")
     error: OperationError | None = Field(default=None, description="Structured error when resource inspection fails.")
 
 
 class AttributeResult(BaseModel):
-    session_id: str = Field(description="Session identifier targeted by the attribute operation.")
-    attribute: str = Field(description="Python-level or VISA-level attribute name that was read or written.")
+    session_id: str = Field(
+        description="Session identifier targeted by the attribute operation.",
+        examples=["12345678-1234-4123-8123-123456789abc"],
+    )
+    attribute: str = Field(
+        description="Python-level or VISA-level attribute name that was read or written.",
+        examples=["timeout", "read_termination"],
+    )
     resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
-    value: Any | None = Field(default=None, description="Current or updated attribute value returned by the operation.")
+    value: Any | None = Field(
+        default=None,
+        description="Current or updated attribute value returned by the operation.",
+        examples=[3000, "\n", None],
+    )
     error: OperationError | None = Field(default=None, description="Structured error when the attribute operation fails.")
 
 
