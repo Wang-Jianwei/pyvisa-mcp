@@ -417,3 +417,47 @@ Files added or updated
 Why it matters
 
 - The repository now proves that the binary MCP path works against a real simulated backend, while also documenting the current boundary of what the sim fixture format can and cannot represent.
+
+## [2026-05-09] implementation | add caller managed binary output paths
+
+What changed
+
+- Added optional `output_file_path` support to binary read and binary query tools.
+- Extended binary payload metadata so responses explicitly state whether a returned file path will be cleaned up on session close.
+- Updated the CLI so `read-bin` and `query-bin` can target caller-managed file paths directly.
+
+Files added or updated
+
+- `README.md`
+- `src/pyvisa_mcp/cli_runtime.py`
+- `src/pyvisa_mcp/schemas.py`
+- `src/pyvisa_mcp/tools.py`
+- `tests/test_cli.py`
+- `tests/test_cli_integration.py`
+- `tests/test_server.py`
+- `tests/test_tools.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- Callers can now persist binary captures to a chosen path without depending on the session-scoped temp-file lifecycle, while still preserving the existing auto-cleanup behavior for server-managed temp files.
+
+## [2026-05-09] verification | validate caller managed binary output paths
+
+What changed
+
+- Added focused tests for explicit output-file handling in the tool layer, CLI parsing, CLI rendering, and CLI process integration.
+- Verified that caller-managed output files remain on disk after session close while server-managed temp files continue to be cleaned up.
+
+Files added or updated
+
+- `tests/test_cli.py`
+- `tests/test_cli_integration.py`
+- `tests/test_server.py`
+- `tests/test_tools.py`
+- `wiki/log.md`
+
+Why it matters
+
+- The binary file handoff contract is now executable and explicit, reducing ambiguity about file ownership and cleanup semantics for agents and users.

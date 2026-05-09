@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import tempfile
-from pathlib import Path
 import sys
 import unittest
 
@@ -299,6 +298,37 @@ class ToolsTests(unittest.TestCase):
         close_resource_session(session_id)
         self.assertFalse(temp_path.exists())
 
+    def test_read_binary_message_supports_explicit_output_file_without_auto_cleanup(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        read_binary_message = self.mcp.tools["read_binary_message"]
+        close_resource_session = self.mcp.tools["close_resource_session"]
+
+        self.adapter.binary_reads = [b"\xaa\xbb\xcc"]
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "capture.bin"
+
+            result = read_binary_message(session_id, payload_mode="temp_file", output_file_path=str(output_path))
+            close_resource_session(session_id)
+
+            self.assertEqual(result.payload.file_path, str(output_path))
+            self.assertFalse(result.payload.cleanup_on_close)
+            self.assertTrue(output_path.exists())
+            self.assertEqual(output_path.read_bytes(), b"\xaa\xbb\xcc")
+
+    def test_query_binary_message_rejects_output_file_without_temp_file_mode(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        query_binary_message = self.mcp.tools["query_binary_message"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        result = query_binary_message(session_id, "CURV?", payload_mode="base64", output_file_path="D:/captures/out.bin")
+
+        self.assertIsNotNone(result.error)
+        self.assertEqual(result.error.code, "ValueError")
+        self.assertEqual(result.error.message, "output_file_path requires payload_mode temp_file")
+
     def test_query_binary_message_returns_structured_payload(self) -> None:
         open_resource_session = self.mcp.tools["open_resource_session"]
         query_binary_message = self.mcp.tools["query_binary_message"]
@@ -311,6 +341,7 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(result.payload_mode, "base64")
         self.assertEqual(result.delay_s, 0.2)
         self.assertEqual(result.response.data_base64, "AAFyYXc=")
+        self.assertIsNone(result.response.cleanup_on_close)
 
 
 if __name__ == "__main__":

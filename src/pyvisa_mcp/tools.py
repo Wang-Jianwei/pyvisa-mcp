@@ -128,6 +128,13 @@ BinaryFilePathArg = Annotated[
         examples=["C:/Temp/instrument.bin"],
     ),
 ]
+BinaryOutputFilePathArg = Annotated[
+    str | None,
+    Field(
+        description="Optional caller-managed file path for binary read or query output when payload_mode is 'temp_file'. When omitted, the server creates and later cleans up a temporary file.",
+        examples=["D:/captures/waveform.bin", None],
+    ),
+]
 
 _INTEGER_ATTRIBUTES = {"timeout", "chunk_size"}
 _FLOAT_ATTRIBUTES = {"query_delay"}
@@ -215,12 +222,27 @@ def _encode_binary_output(
     payload_mode: Literal["base64", "temp_file"],
     payload: bytes,
     registry: SessionRegistry,
+    output_file_path: str | None = None,
 ) -> BinaryPayloadReference:
     if payload_mode == "base64":
+        if output_file_path is not None:
+            raise ValueError("output_file_path requires payload_mode temp_file")
         return BinaryPayloadReference(
             payload_mode=payload_mode,
             byte_count=len(payload),
             data_base64=base64.b64encode(payload).decode("ascii"),
+            cleanup_on_close=None,
+        )
+
+    if output_file_path is not None:
+        target_path = Path(output_file_path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(payload)
+        return BinaryPayloadReference(
+            payload_mode=payload_mode,
+            byte_count=len(payload),
+            file_path=str(target_path),
+            cleanup_on_close=False,
         )
 
     temp_dir = Path(tempfile.gettempdir()) / "pyvisa-mcp"
@@ -239,6 +261,7 @@ def _encode_binary_output(
         payload_mode=payload_mode,
         byte_count=len(payload),
         file_path=str(temp_path),
+        cleanup_on_close=True,
     )
 
 
@@ -411,6 +434,7 @@ def register_tools(
     def read_binary_message(
         session_id: SessionIdArg,
         payload_mode: BinaryPayloadModeArg = "base64",
+        output_file_path: BinaryOutputFilePathArg = None,
     ) -> ReadBinaryMessageResult:
         """Read binary bytes from an opened session as base64 or a temporary file reference."""
         try:
@@ -424,6 +448,7 @@ def register_tools(
                     payload_mode=payload_mode,
                     payload=payload,
                     registry=registry,
+                    output_file_path=output_file_path,
                 ),
             )
         except Exception as exc:
@@ -438,6 +463,7 @@ def register_tools(
         command: CommandArg,
         payload_mode: BinaryPayloadModeArg = "base64",
         delay_s: QueryDelayArg = None,
+        output_file_path: BinaryOutputFilePathArg = None,
     ) -> QueryBinaryMessageResult:
         """Issue a text query command and return a binary response as base64 or a temporary file reference."""
         try:
@@ -454,6 +480,7 @@ def register_tools(
                     payload_mode=payload_mode,
                     payload=response,
                     registry=registry,
+                    output_file_path=output_file_path,
                 ),
             )
         except Exception as exc:

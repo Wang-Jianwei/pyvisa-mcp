@@ -32,8 +32,8 @@ HELP_TEXT = """Commands:
   query [session_id|@] [--delay-s F] <command>
   read [session_id|@]
   write [session_id|@] <message>
-    query-bin [session_id|@] [--payload-mode base64|temp_file] [--delay-s F] <command>
-    read-bin [session_id|@] [--payload-mode base64|temp_file]
+    query-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH] [--delay-s F] <command>
+    read-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH]
     write-bin [session_id|@] (--base64 DATA | --file PATH)
   info <resource_name>
   get-attr [session_id|@] <attribute>
@@ -442,11 +442,25 @@ def _parse_query_arguments(session_id: str, arguments: list[str]) -> dict[str, A
 
 def _parse_binary_read_arguments(session_id: str, arguments: list[str]) -> dict[str, Any]:
     tool_args: dict[str, Any] = {"session_id": session_id, "payload_mode": "base64"}
-    if not arguments:
-        return tool_args
-    if len(arguments) != 2 or arguments[0] != "--payload-mode":
-        raise ValueError("read-bin only accepts optional --payload-mode base64|temp_file")
-    tool_args["payload_mode"] = _parse_binary_payload_mode(arguments[1])
+    index = 0
+    while index < len(arguments):
+        token = arguments[index]
+        if token == "--payload-mode":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --payload-mode")
+            tool_args["payload_mode"] = _parse_binary_payload_mode(arguments[index + 1])
+            index += 2
+            continue
+        if token == "--output-file":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --output-file")
+            tool_args["output_file_path"] = arguments[index + 1]
+            index += 2
+            continue
+        raise ValueError("read-bin only accepts optional --payload-mode base64|temp_file and --output-file PATH")
+
+    if "output_file_path" in tool_args and tool_args["payload_mode"] != "temp_file":
+        raise ValueError("--output-file requires --payload-mode temp_file")
     return tool_args
 
 
@@ -481,11 +495,19 @@ def _parse_binary_query_arguments(session_id: str, arguments: list[str]) -> dict
             tool_args["payload_mode"] = _parse_binary_payload_mode(arguments[index + 1])
             index += 2
             continue
+        if token == "--output-file":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --output-file")
+            tool_args["output_file_path"] = arguments[index + 1]
+            index += 2
+            continue
         tool_args["command"] = " ".join(arguments[index:])
         break
 
     if "command" not in tool_args:
         raise ValueError("query-bin requires a command")
+    if "output_file_path" in tool_args and tool_args["payload_mode"] != "temp_file":
+        raise ValueError("--output-file requires --payload-mode temp_file")
     return tool_args
 
 
@@ -532,7 +554,8 @@ def _render_binary_payload_summary(prefix: str, payload: Any) -> str:
     byte_count = payload.get("byte_count")
     payload_mode = payload.get("payload_mode")
     if payload_mode == "temp_file":
-        return f"{prefix} {byte_count} bytes to {payload.get('file_path')}"
+        ownership = "auto-cleanup on close" if payload.get("cleanup_on_close") else "caller-managed file"
+        return f"{prefix} {byte_count} bytes to {payload.get('file_path')} ({ownership})"
     data_base64 = str(payload.get("data_base64") or "")
     preview = data_base64 if len(data_base64) <= 48 else f"{data_base64[:45]}..."
     return f"{prefix} {byte_count} bytes as base64: {preview}"

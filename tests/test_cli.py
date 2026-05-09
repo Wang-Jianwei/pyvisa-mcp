@@ -42,6 +42,7 @@ class FakeRuntime:
                 "error": None,
             }
         if name == "read_binary_message":
+            file_path = arguments.get("output_file_path")
             return {
                 "session_id": str(arguments["session_id"]),
                 "resource_name": "ASRL2::INSTR",
@@ -50,11 +51,13 @@ class FakeRuntime:
                     "byte_count": 3,
                     "content_type": "application/octet-stream",
                     "data_base64": "AQID" if arguments.get("payload_mode", "base64") == "base64" else None,
-                    "file_path": "C:/Temp/pyvisa-mcp/test.bin" if arguments.get("payload_mode") == "temp_file" else None,
+                    "file_path": str(file_path) if file_path else ("C:/Temp/pyvisa-mcp/test.bin" if arguments.get("payload_mode") == "temp_file" else None),
+                    "cleanup_on_close": False if file_path else (True if arguments.get("payload_mode") == "temp_file" else None),
                 },
                 "error": None,
             }
         if name == "query_binary_message":
+            file_path = arguments.get("output_file_path")
             return {
                 "session_id": str(arguments["session_id"]),
                 "command": str(arguments["command"]),
@@ -66,7 +69,8 @@ class FakeRuntime:
                     "byte_count": 3,
                     "content_type": "application/octet-stream",
                     "data_base64": "AQID" if arguments.get("payload_mode", "base64") == "base64" else None,
-                    "file_path": "C:/Temp/pyvisa-mcp/query.bin" if arguments.get("payload_mode") == "temp_file" else None,
+                    "file_path": str(file_path) if file_path else ("C:/Temp/pyvisa-mcp/query.bin" if arguments.get("payload_mode") == "temp_file" else None),
+                    "cleanup_on_close": False if file_path else (True if arguments.get("payload_mode") == "temp_file" else None),
                 },
                 "error": None,
             }
@@ -135,16 +139,29 @@ class CliCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("No active session", result.text)
 
     async def test_binary_commands_render_base64_and_temp_file_results(self) -> None:
-        cli = PyvisaMcpCli(FakeRuntime())
+        runtime = FakeRuntime()
+        cli = PyvisaMcpCli(runtime)
 
         await cli.execute_line("open ASRL2::INSTR")
         write_result = await cli.execute_line("write-bin --base64 AQID")
         read_result = await cli.execute_line("read-bin")
         query_result = await cli.execute_line("query-bin --payload-mode temp_file CURV?")
+        read_to_file_result = await cli.execute_line("read-bin --payload-mode temp_file --output-file D:/captures/read.bin")
 
         self.assertEqual(write_result.text, "Wrote 3 binary bytes to ASRL2::INSTR")
         self.assertIn("Read 3 bytes as base64: AQID", read_result.text)
-        self.assertIn("Query returned 3 bytes to C:/Temp/pyvisa-mcp/query.bin", query_result.text)
+        self.assertIn("Query returned 3 bytes to C:/Temp/pyvisa-mcp/query.bin (auto-cleanup on close)", query_result.text)
+        self.assertIn("Read 3 bytes to D:/captures/read.bin (caller-managed file)", read_to_file_result.text)
+        self.assertIn(("call_tool", "read_binary_message", {"session_id": "11111111-1111-4111-8111-111111111111", "payload_mode": "temp_file", "output_file_path": "D:/captures/read.bin"}), runtime.calls)
+
+    async def test_binary_commands_reject_output_file_without_temp_file_mode(self) -> None:
+        cli = PyvisaMcpCli(FakeRuntime())
+
+        await cli.execute_line("open ASRL2::INSTR")
+        result = await cli.execute_line("query-bin --output-file D:/captures/out.bin CURV?")
+
+        self.assertTrue(result.error)
+        self.assertIn("--output-file requires --payload-mode temp_file", result.text)
 
 
 if __name__ == "__main__":

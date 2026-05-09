@@ -138,8 +138,13 @@ class BinaryPayloadReference(BaseModel):
     )
     file_path: str | None = Field(
         default=None,
-        description="Server-local file path containing the payload when payload_mode is 'temp_file'.",
-        examples=["C:/Temp/pyvisa-mcp/session-1234.bin"],
+        description="Local file path containing the payload when payload_mode is 'temp_file', either server-managed or caller-specified.",
+        examples=["C:/Temp/pyvisa-mcp/session-1234.bin", "D:/captures/waveform.bin"],
+    )
+    cleanup_on_close: bool | None = Field(
+        default=None,
+        description="Whether file_path will be deleted automatically when the owning session closes. Null for inline base64 payloads.",
+        examples=[True, False],
     )
 
 

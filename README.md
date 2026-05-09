@@ -117,9 +117,12 @@ Binary REPL commands:
 - `write-bin --base64 AQID`
 - `write-bin --file C:/Temp/capture.bin`
 - `read-bin --payload-mode base64`
+- `read-bin --payload-mode temp_file --output-file D:/captures/read.bin`
 - `query-bin --payload-mode temp_file "CURV?"`
+- `query-bin --payload-mode temp_file --output-file D:/captures/query.bin "CURV?"`
 
-When `read-bin` or `query-bin` uses `temp_file`, the server writes the payload to a temporary file, returns that path, and cleans it up automatically when the owning session is closed.
+When `read-bin` or `query-bin` uses `temp_file` without `--output-file`, the server writes the payload to a temporary file, returns that path, and cleans it up automatically when the owning session is closed.
+When `--output-file` is provided, the payload is written to that caller-managed path instead and is not removed on session close.
 
 ## Test
 
