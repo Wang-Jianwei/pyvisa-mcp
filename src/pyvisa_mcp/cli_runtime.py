@@ -32,8 +32,8 @@ HELP_TEXT = """Commands:
   query [session_id|@] [--delay-s F] <command>
   read [session_id|@]
   write [session_id|@] <message>
-    query-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH] [--delay-s F] <command>
-    read-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH]
+    query-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH] [--output-conflict error|overwrite] [--delay-s F] <command>
+    read-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH] [--output-conflict error|overwrite]
     write-bin [session_id|@] (--base64 DATA | --file PATH)
   info <resource_name>
   get-attr [session_id|@] <attribute>
@@ -457,10 +457,18 @@ def _parse_binary_read_arguments(session_id: str, arguments: list[str]) -> dict[
             tool_args["output_file_path"] = arguments[index + 1]
             index += 2
             continue
-        raise ValueError("read-bin only accepts optional --payload-mode base64|temp_file and --output-file PATH")
+        if token == "--output-conflict":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --output-conflict")
+            tool_args["output_file_conflict"] = _parse_output_file_conflict(arguments[index + 1])
+            index += 2
+            continue
+        raise ValueError("read-bin only accepts optional --payload-mode base64|temp_file, --output-file PATH, and --output-conflict error|overwrite")
 
     if "output_file_path" in tool_args and tool_args["payload_mode"] != "temp_file":
         raise ValueError("--output-file requires --payload-mode temp_file")
+    if "output_file_conflict" in tool_args and "output_file_path" not in tool_args:
+        raise ValueError("--output-conflict requires --output-file PATH")
     return tool_args
 
 
@@ -501,6 +509,12 @@ def _parse_binary_query_arguments(session_id: str, arguments: list[str]) -> dict
             tool_args["output_file_path"] = arguments[index + 1]
             index += 2
             continue
+        if token == "--output-conflict":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --output-conflict")
+            tool_args["output_file_conflict"] = _parse_output_file_conflict(arguments[index + 1])
+            index += 2
+            continue
         tool_args["command"] = " ".join(arguments[index:])
         break
 
@@ -508,6 +522,8 @@ def _parse_binary_query_arguments(session_id: str, arguments: list[str]) -> dict
         raise ValueError("query-bin requires a command")
     if "output_file_path" in tool_args and tool_args["payload_mode"] != "temp_file":
         raise ValueError("--output-file requires --payload-mode temp_file")
+    if "output_file_conflict" in tool_args and "output_file_path" not in tool_args:
+        raise ValueError("--output-conflict requires --output-file PATH")
     return tool_args
 
 
@@ -545,6 +561,12 @@ def _decode_escapes(value: str) -> str:
 def _parse_binary_payload_mode(value: str) -> str:
     if value not in {"base64", "temp_file"}:
         raise ValueError("payload mode must be 'base64' or 'temp_file'")
+    return value
+
+
+def _parse_output_file_conflict(value: str) -> str:
+    if value not in {"error", "overwrite"}:
+        raise ValueError("output conflict must be 'error' or 'overwrite'")
     return value
 
 

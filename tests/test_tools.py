@@ -329,6 +329,47 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(result.error.code, "ValueError")
         self.assertEqual(result.error.message, "output_file_path requires payload_mode temp_file")
 
+    def test_read_binary_message_rejects_existing_output_file_by_default(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        read_binary_message = self.mcp.tools["read_binary_message"]
+
+        self.adapter.binary_reads = [b"new-bytes"]
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "capture.bin"
+            output_path.write_bytes(b"existing")
+
+            result = read_binary_message(session_id, payload_mode="temp_file", output_file_path=str(output_path))
+
+            self.assertIsNotNone(result.error)
+            self.assertEqual(result.error.code, "FileExistsError")
+            self.assertEqual(output_path.read_bytes(), b"existing")
+
+    def test_query_binary_message_can_overwrite_existing_output_file_when_requested(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        query_binary_message = self.mcp.tools["query_binary_message"]
+
+        self.adapter.binary_reads = [b"replacement"]
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "capture.bin"
+            output_path.write_bytes(b"existing")
+
+            result = query_binary_message(
+                session_id,
+                "CURV?",
+                payload_mode="temp_file",
+                output_file_path=str(output_path),
+                output_file_conflict="overwrite",
+            )
+
+            self.assertIsNone(result.error)
+            self.assertEqual(result.response.file_path, str(output_path))
+            self.assertFalse(result.response.cleanup_on_close)
+            self.assertEqual(output_path.read_bytes(), b"replacement")
+
     def test_query_binary_message_returns_structured_payload(self) -> None:
         open_resource_session = self.mcp.tools["open_resource_session"]
         query_binary_message = self.mcp.tools["query_binary_message"]

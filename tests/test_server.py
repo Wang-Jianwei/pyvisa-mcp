@@ -37,6 +37,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         attribute_schema = tools_by_name["set_resource_attribute"].inputSchema["properties"]
         binary_write_schema = tools_by_name["write_binary_message"].inputSchema["properties"]
         binary_query_schema = tools_by_name["query_binary_message"].inputSchema["properties"]
+        binary_read_schema = tools_by_name["read_binary_message"].inputSchema["properties"]
 
         self.assertIn("Fully qualified VISA resource name", open_schema["resource_name"]["description"])
         self.assertIn("Open timeout in milliseconds", open_schema["open_timeout_ms"]["description"])
@@ -45,6 +46,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Attribute value to set", attribute_schema["value"]["description"])
         self.assertIn("Binary payload transport mode", binary_write_schema["payload_mode"]["description"])
         self.assertIn("caller-managed file path", binary_query_schema["output_file_path"]["description"])
+        self.assertIn("Conflict policy for output_file_path", binary_read_schema["output_file_conflict"]["description"])
 
     async def test_tool_schemas_include_parameter_examples(self) -> None:
         tools = await self.server.list_tools()
@@ -55,6 +57,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         attribute_schema = tools_by_name["set_resource_attribute"].inputSchema["properties"]
         binary_write_schema = tools_by_name["write_binary_message"].inputSchema["properties"]
         binary_query_schema = tools_by_name["query_binary_message"].inputSchema["properties"]
+        binary_read_schema = tools_by_name["read_binary_message"].inputSchema["properties"]
 
         self.assertIn("ASRL2::INSTR", open_schema["resource_name"]["examples"])
         self.assertIn(5000, open_schema["open_timeout_ms"]["examples"])
@@ -63,6 +66,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("3000", attribute_schema["value"]["examples"])
         self.assertIn("base64", binary_write_schema["payload_mode"]["examples"])
         self.assertIn("D:/captures/waveform.bin", binary_query_schema["output_file_path"]["examples"])
+        self.assertIn("overwrite", binary_read_schema["output_file_conflict"]["examples"])
 
     async def test_tool_output_schemas_include_result_descriptions(self) -> None:
         tools = await self.server.list_tools()

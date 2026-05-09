@@ -163,6 +163,37 @@ class CliCommandTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.error)
         self.assertIn("--output-file requires --payload-mode temp_file", result.text)
 
+    async def test_binary_commands_reject_output_conflict_without_output_file(self) -> None:
+        cli = PyvisaMcpCli(FakeRuntime())
+
+        await cli.execute_line("open ASRL2::INSTR")
+        result = await cli.execute_line("read-bin --payload-mode temp_file --output-conflict overwrite")
+
+        self.assertTrue(result.error)
+        self.assertIn("--output-conflict requires --output-file PATH", result.text)
+
+    async def test_binary_commands_forward_output_conflict_policy(self) -> None:
+        runtime = FakeRuntime()
+        cli = PyvisaMcpCli(runtime)
+
+        await cli.execute_line("open ASRL2::INSTR")
+        await cli.execute_line("query-bin --payload-mode temp_file --output-file D:/captures/read.bin --output-conflict overwrite CURV?")
+
+        self.assertIn(
+            (
+                "call_tool",
+                "query_binary_message",
+                {
+                    "session_id": "11111111-1111-4111-8111-111111111111",
+                    "payload_mode": "temp_file",
+                    "output_file_path": "D:/captures/read.bin",
+                    "output_file_conflict": "overwrite",
+                    "command": "CURV?",
+                },
+            ),
+            runtime.calls,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

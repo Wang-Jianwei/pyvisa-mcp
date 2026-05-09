@@ -461,3 +461,46 @@ Files added or updated
 Why it matters
 
 - The binary file handoff contract is now executable and explicit, reducing ambiguity about file ownership and cleanup semantics for agents and users.
+
+## [2026-05-09] implementation | add binary output overwrite policy
+
+What changed
+
+- Added an explicit `output_file_conflict` policy to binary read and query tools.
+- Kept the default behavior safe by refusing to overwrite existing caller-managed files unless `overwrite` is requested.
+- Extended CLI parsing so `read-bin` and `query-bin` can opt into overwrite explicitly.
+
+Files added or updated
+
+- `README.md`
+- `src/pyvisa_mcp/cli_runtime.py`
+- `src/pyvisa_mcp/tools.py`
+- `tests/test_cli.py`
+- `tests/test_server.py`
+- `tests/test_tools.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- This prevents accidental data loss when callers target a stable output path, while still allowing intentional replacement when a workflow needs it.
+
+## [2026-05-09] verification | validate binary output overwrite policy
+
+What changed
+
+- Added focused tool and CLI tests for default file-exists failures and explicit overwrite handling.
+- Added CLI process integration coverage showing that real sim-backed binary queries respect the overwrite policy.
+- Added schema assertions that expose the overwrite-policy parameter to agents.
+
+Files added or updated
+
+- `tests/test_cli.py`
+- `tests/test_cli_integration.py`
+- `tests/test_server.py`
+- `tests/test_tools.py`
+- `wiki/log.md`
+
+Why it matters
+
+- The overwrite semantics are now both documented and executable, which reduces ambiguity for automation and keeps caller-managed capture paths safe by default.

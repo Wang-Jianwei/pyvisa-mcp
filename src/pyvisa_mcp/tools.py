@@ -135,6 +135,13 @@ BinaryOutputFilePathArg = Annotated[
         examples=["D:/captures/waveform.bin", None],
     ),
 ]
+BinaryOutputConflictArg = Annotated[
+    Literal["error", "overwrite"],
+    Field(
+        description="Conflict policy for output_file_path. Use 'error' to refuse overwriting an existing file or 'overwrite' to replace it.",
+        examples=["error", "overwrite"],
+    ),
+]
 
 _INTEGER_ATTRIBUTES = {"timeout", "chunk_size"}
 _FLOAT_ATTRIBUTES = {"query_delay"}
@@ -223,10 +230,15 @@ def _encode_binary_output(
     payload: bytes,
     registry: SessionRegistry,
     output_file_path: str | None = None,
+    output_file_conflict: Literal["error", "overwrite"] = "error",
 ) -> BinaryPayloadReference:
     if payload_mode == "base64":
         if output_file_path is not None:
+            if output_file_conflict != "error":
+                raise ValueError("output_file_path and output_file_conflict require payload_mode temp_file")
             raise ValueError("output_file_path requires payload_mode temp_file")
+        if output_file_conflict != "error":
+            raise ValueError("output_file_path and output_file_conflict require payload_mode temp_file")
         return BinaryPayloadReference(
             payload_mode=payload_mode,
             byte_count=len(payload),
@@ -237,6 +249,8 @@ def _encode_binary_output(
     if output_file_path is not None:
         target_path = Path(output_file_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_path.exists() and output_file_conflict != "overwrite":
+            raise FileExistsError(f"Output file already exists: {target_path}")
         target_path.write_bytes(payload)
         return BinaryPayloadReference(
             payload_mode=payload_mode,
@@ -435,6 +449,7 @@ def register_tools(
         session_id: SessionIdArg,
         payload_mode: BinaryPayloadModeArg = "base64",
         output_file_path: BinaryOutputFilePathArg = None,
+        output_file_conflict: BinaryOutputConflictArg = "error",
     ) -> ReadBinaryMessageResult:
         """Read binary bytes from an opened session as base64 or a temporary file reference."""
         try:
@@ -449,6 +464,7 @@ def register_tools(
                     payload=payload,
                     registry=registry,
                     output_file_path=output_file_path,
+                    output_file_conflict=output_file_conflict,
                 ),
             )
         except Exception as exc:
@@ -464,6 +480,7 @@ def register_tools(
         payload_mode: BinaryPayloadModeArg = "base64",
         delay_s: QueryDelayArg = None,
         output_file_path: BinaryOutputFilePathArg = None,
+        output_file_conflict: BinaryOutputConflictArg = "error",
     ) -> QueryBinaryMessageResult:
         """Issue a text query command and return a binary response as base64 or a temporary file reference."""
         try:
@@ -481,6 +498,7 @@ def register_tools(
                     payload=response,
                     registry=registry,
                     output_file_path=output_file_path,
+                    output_file_conflict=output_file_conflict,
                 ),
             )
         except Exception as exc:

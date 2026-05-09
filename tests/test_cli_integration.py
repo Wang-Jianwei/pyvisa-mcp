@@ -112,6 +112,44 @@ class CliIntegrationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "query.bin"
+            output_path.write_bytes(b"old")
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pyvisa_mcp.cli",
+                    "--backend",
+                    f"{profile.as_posix()}@sim",
+                    "--json",
+                    "--no-prompt",
+                ],
+                input=f"open ASRL2::INSTR\nquery-bin --payload-mode temp_file --output-file {output_path.as_posix()} --output-conflict overwrite CURV?\nclose\nexit\n",
+                capture_output=True,
+                text=True,
+                cwd=root,
+                env=env,
+                check=False,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn('"cleanup_on_close": false', completed.stdout)
+            self.assertIn('"payload_mode": "temp_file"', completed.stdout)
+            self.assertIn('query.bin', completed.stdout)
+            self.assertTrue(output_path.exists())
+            self.assertEqual(output_path.read_bytes(), "é中\n".encode("utf-8"))
+
+    @unittest.skipUnless(importlib.util.find_spec("pyvisa_sim") is not None, "pyvisa-sim is not installed")
+    def test_cli_repl_reports_existing_output_file_without_overwrite(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        profile = Path(__file__).resolve().parent / "fixtures" / "pyvisa_sim.yaml"
+        env = os.environ.copy()
+        existing_pythonpath = env.get("PYTHONPATH")
+        src_path = str(root / "src")
+        env["PYTHONPATH"] = src_path if not existing_pythonpath else os.pathsep.join([src_path, existing_pythonpath])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "query.bin"
+            output_path.write_bytes(b"old")
             completed = subprocess.run(
                 [
                     sys.executable,
@@ -131,11 +169,9 @@ class CliIntegrationTests(unittest.TestCase):
             )
 
             self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertIn('"cleanup_on_close": false', completed.stdout)
-            self.assertIn('"payload_mode": "temp_file"', completed.stdout)
-            self.assertIn('query.bin', completed.stdout)
-            self.assertTrue(output_path.exists())
-            self.assertEqual(output_path.read_bytes(), "é中\n".encode("utf-8"))
+            self.assertIn('"code": "FileExistsError"', completed.stderr)
+            self.assertIn('"message": "Output file already exists:', completed.stderr)
+            self.assertEqual(output_path.read_bytes(), b"old")
 
 
 if __name__ == "__main__":

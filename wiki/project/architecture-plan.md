@@ -61,6 +61,7 @@ The code currently provides:
 - binary VISA read, write, and query support with explicit `base64` and `temp_file` payload modes
 - server-managed temporary binary file cleanup tied to MCP session lifecycle
 - optional caller-managed output paths for binary read and query operations when a stable file location is needed beyond session close
+- explicit output-file conflict policy so caller-managed captures fail safely by default and only overwrite when requested
 - first-pass tool and resource registration functions
 
 ## First tool set
@@ -113,5 +114,6 @@ The repository now has stdlib-only tests for:
 - session-registry cleanup checks for server-managed temporary binary files
 - sim-backed binary query validation through the repository-local `pyvisa-sim` profile and the CLI process path
 - explicit-output-file checks proving caller-managed binary captures survive session close
+- overwrite-policy checks proving existing caller-managed files are preserved by default and replaced only when explicitly requested
 
 The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` and UTF-8-backed binary `CURV?` paths, plus richer CLI command coverage for attribute and resource-info workflows.
