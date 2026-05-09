@@ -1,7 +1,7 @@
 ---
 title: PyVISA
 status: active
-updated: 2026-05-08
+updated: 2026-05-09
 tags:
   - standard
   - pyvisa
@@ -55,3 +55,8 @@ The first implementation should explicitly handle:
 - `pyvisa-info` is a key environment diagnostic surface.
 - `pyvisa-shell` is useful for manual validation and sim-backend testing.
 - PyVISA runtime logging is relevant for troubleshooting support.
+
+## Sim backend notes
+
+- `pyvisa-sim` dialogues are stored as bytes internally, which makes it useful for validating binary MCP paths against a real backend implementation rather than only mocks.
+- The current YAML parser only normalizes `\r` and `\n` before UTF-8 encoding values, so repository-local sim fixtures can validate UTF-8-backed binary responses but are not a full arbitrary-byte authoring format.

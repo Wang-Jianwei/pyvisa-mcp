@@ -54,10 +54,12 @@ The code currently provides:
 - backend argument normalization that supports both shorthand backends and explicit `profile.yaml@sim` sim backends
 - a `VisaAdapter` with lazy PyVISA integration boundaries
 - a `SessionRegistry` for MCP-managed resource sessions
-- dataclass-based schemas for tools and resources with result counts and operation context
+- BaseModel-backed schemas for tools and resources with result counts, operation context, descriptions, and examples
 - parameter-level tool schema descriptions so agents can see runtime semantics beyond names and primitive types
 - BaseModel-backed result schemas with field-level descriptions that flow into FastMCP output schemas
 - targeted schema examples on key input and output fields so agents can see representative session IDs, resource names, commands, attribute names, and error codes
+- binary VISA read, write, and query support with explicit `base64` and `temp_file` payload modes
+- server-managed temporary binary file cleanup tied to MCP session lifecycle
 - first-pass tool and resource registration functions
 
 ## First tool set
@@ -68,6 +70,9 @@ The code currently provides:
 - write message
 - read message
 - query message
+- write binary message
+- read binary message
+- query binary message
 - inspect resource info
 - get diagnostic/environment information
 - get or set selected resource attributes
@@ -103,5 +108,8 @@ The repository now has stdlib-only tests for:
 - tool schema checks that confirm FastMCP exposes parameter descriptions to agents
 - output schema checks that confirm FastMCP exposes result-field descriptions to agents
 - schema checks that confirm FastMCP exposes representative examples for key input and output fields
+- mocked binary tool coverage for base64 and temporary-file payload paths
+- session-registry cleanup checks for server-managed temporary binary files
+- sim-backed binary query validation through the repository-local `pyvisa-sim` profile and the CLI process path
 
-The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` path, plus richer CLI command coverage for attribute and resource-info workflows.
+The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` and UTF-8-backed binary `CURV?` paths, plus richer CLI command coverage for attribute and resource-info workflows.

@@ -30,6 +30,18 @@ class PyvisaSimSmokeTests(unittest.TestCase):
 
         self.assertEqual(response, "PYVISA-MCP,SIM,0.1\n")
 
+    def test_adapter_binary_query_returns_raw_bytes_from_sim_profile(self) -> None:
+        profile = Path(__file__).resolve().parent / "fixtures" / "pyvisa_sim.yaml"
+        adapter = VisaAdapter(default_backend=f"{profile.as_posix()}@sim")
+
+        resource = adapter.open_resource(resource_name="ASRL2::INSTR", timeout_ms=2500)
+        try:
+            response = adapter.query_binary_message(resource, "CURV?")
+        finally:
+            adapter.close_resource(resource)
+
+        self.assertEqual(response, "é中\n".encode("utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

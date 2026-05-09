@@ -41,6 +41,43 @@ class FakeRuntime:
                 "response": "PYVISA-MCP,SIM,0.1\n",
                 "error": None,
             }
+        if name == "read_binary_message":
+            return {
+                "session_id": str(arguments["session_id"]),
+                "resource_name": "ASRL2::INSTR",
+                "payload": {
+                    "payload_mode": str(arguments.get("payload_mode", "base64")),
+                    "byte_count": 3,
+                    "content_type": "application/octet-stream",
+                    "data_base64": "AQID" if arguments.get("payload_mode", "base64") == "base64" else None,
+                    "file_path": "C:/Temp/pyvisa-mcp/test.bin" if arguments.get("payload_mode") == "temp_file" else None,
+                },
+                "error": None,
+            }
+        if name == "query_binary_message":
+            return {
+                "session_id": str(arguments["session_id"]),
+                "command": str(arguments["command"]),
+                "payload_mode": str(arguments.get("payload_mode", "base64")),
+                "resource_name": "ASRL2::INSTR",
+                "delay_s": arguments.get("delay_s"),
+                "response": {
+                    "payload_mode": str(arguments.get("payload_mode", "base64")),
+                    "byte_count": 3,
+                    "content_type": "application/octet-stream",
+                    "data_base64": "AQID" if arguments.get("payload_mode", "base64") == "base64" else None,
+                    "file_path": "C:/Temp/pyvisa-mcp/query.bin" if arguments.get("payload_mode") == "temp_file" else None,
+                },
+                "error": None,
+            }
+        if name == "write_binary_message":
+            return {
+                "session_id": str(arguments["session_id"]),
+                "payload_mode": str(arguments.get("payload_mode", "base64")),
+                "resource_name": "ASRL2::INSTR",
+                "bytes_written": 3,
+                "error": None,
+            }
         if name == "close_resource_session":
             return {
                 "session_id": str(arguments["session_id"]),
@@ -96,6 +133,18 @@ class CliCommandTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result.error)
         self.assertIn("No active session", result.text)
+
+    async def test_binary_commands_render_base64_and_temp_file_results(self) -> None:
+        cli = PyvisaMcpCli(FakeRuntime())
+
+        await cli.execute_line("open ASRL2::INSTR")
+        write_result = await cli.execute_line("write-bin --base64 AQID")
+        read_result = await cli.execute_line("read-bin")
+        query_result = await cli.execute_line("query-bin --payload-mode temp_file CURV?")
+
+        self.assertEqual(write_result.text, "Wrote 3 binary bytes to ASRL2::INSTR")
+        self.assertIn("Read 3 bytes as base64: AQID", read_result.text)
+        self.assertIn("Query returned 3 bytes to C:/Temp/pyvisa-mcp/query.bin", query_result.text)
 
 
 if __name__ == "__main__":

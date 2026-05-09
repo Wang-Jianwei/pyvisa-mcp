@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
+from pathlib import Path
 import sys
 import unittest
 
@@ -45,6 +47,36 @@ class SessionRegistryTests(unittest.TestCase):
         registry = SessionRegistry()
         with self.assertRaises(UnknownSessionError):
             registry.require("missing")
+
+    def test_close_removes_registered_temp_files(self) -> None:
+        registry = SessionRegistry()
+        summary = registry.open(resource_name="USB0::1::INSTR", resource=DummyResource())
+        temp_dir = Path(tempfile.mkdtemp())
+        temp_file = temp_dir / "capture.bin"
+        temp_file.write_bytes(b"\x00\x01")
+        registry.register_temp_file(summary.session_id, temp_file)
+
+        registry.close(summary.session_id)
+
+        self.assertFalse(temp_file.exists())
+
+    def test_close_all_removes_registered_temp_files(self) -> None:
+        registry = SessionRegistry()
+        first = registry.open(resource_name="USB0::1::INSTR", resource=DummyResource())
+        second = registry.open(resource_name="USB0::2::INSTR", resource=DummyResource())
+        temp_dir = Path(tempfile.mkdtemp())
+        first_file = temp_dir / "first.bin"
+        second_file = temp_dir / "second.bin"
+        first_file.write_bytes(b"a")
+        second_file.write_bytes(b"b")
+        registry.register_temp_file(first.session_id, first_file)
+        registry.register_temp_file(second.session_id, second_file)
+
+        closed_count = registry.close_all()
+
+        self.assertEqual(closed_count, 2)
+        self.assertFalse(first_file.exists())
+        self.assertFalse(second_file.exists())
 
 
 if __name__ == "__main__":

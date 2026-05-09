@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from threading import RLock
 from typing import Callable
 from uuid import uuid4
@@ -22,6 +23,7 @@ class ManagedSession:
     write_termination: str | None = None
     query_delay_s: float | None = None
     chunk_size: int | None = None
+    temp_file_paths: list[Path] = field(default_factory=list)
 
     def to_summary(self) -> SessionSummary:
         return SessionSummary(
@@ -102,6 +104,13 @@ class SessionRegistry:
                 managed.chunk_size = chunk_size
             return managed.to_summary()
 
+    def register_temp_file(self, session_id: str, path: str | Path) -> None:
+        managed = self.require(session_id)
+        candidate = Path(path)
+        with self._lock:
+            if candidate not in managed.temp_file_paths:
+                managed.temp_file_paths.append(candidate)
+
     def close(
         self,
         session_id: str,
@@ -114,6 +123,7 @@ class SessionRegistry:
             raise UnknownSessionError(session_id)
         if close_callback is not None:
             close_callback(managed.resource)
+        self._cleanup_temp_files(managed)
         return CloseResourceResult(
             session_id=session_id,
             closed=True,
@@ -131,4 +141,15 @@ class SessionRegistry:
         for managed in sessions:
             if close_callback is not None:
                 close_callback(managed.resource)
+            self._cleanup_temp_files(managed)
         return len(sessions)
+
+    @staticmethod
+    def _cleanup_temp_files(managed: ManagedSession) -> None:
+        for path in managed.temp_file_paths:
+            try:
+                if path.exists():
+                    path.unlink()
+            except OSError:
+                continue
+        managed.temp_file_paths.clear()

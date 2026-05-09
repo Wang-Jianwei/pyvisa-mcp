@@ -347,3 +347,73 @@ Files added or updated
 Why it matters
 
 - This prevents future refactors from silently removing the concrete examples that improve agent-side tool selection and result interpretation.
+
+## [2026-05-08] implementation | add binary visa payload tools
+
+What changed
+
+- Added binary read, write, and query operations to the adapter, tool layer, and CLI.
+- Added structured binary payload schemas that support either inline base64 transport or server-managed temporary-file references.
+- Extended the session registry so temporary binary files are cleaned up automatically when sessions close.
+
+Files added or updated
+
+- `README.md`
+- `src/pyvisa_mcp/cli_runtime.py`
+- `src/pyvisa_mcp/schemas.py`
+- `src/pyvisa_mcp/session_registry.py`
+- `src/pyvisa_mcp/tools.py`
+- `src/pyvisa_mcp/visa_adapter.py`
+- `tests/test_cli.py`
+- `tests/test_server.py`
+- `tests/test_session_registry.py`
+- `tests/test_tools.py`
+- `tests/test_visa_adapter.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The MCP surface can now move raw instrument bytes without forcing them through text-oriented APIs, while still giving callers a choice between inline transport and temporary-file handoff.
+
+## [2026-05-08] verification | validate binary payload paths
+
+What changed
+
+- Ran focused tests covering binary adapter helpers, binary tools, session temp-file cleanup, CLI rendering, and schema exposure.
+- Confirmed that server-managed temporary binary files are removed when the owning session closes.
+
+Files added or updated
+
+- `tests/test_cli.py`
+- `tests/test_server.py`
+- `tests/test_session_registry.py`
+- `tests/test_tools.py`
+- `tests/test_visa_adapter.py`
+- `wiki/log.md`
+
+Why it matters
+
+- Binary support now has executable regression coverage across the adapter, tool, CLI, and schema layers instead of relying on design intent alone.
+
+## [2026-05-09] verification | add sim-backed binary query validation
+
+What changed
+
+- Extended the repository-local `pyvisa-sim` fixture with a UTF-8-backed binary query response.
+- Added a real-backend adapter smoke test for `query_binary_message` and a CLI process test for `query-bin` JSON output.
+- Captured the current `pyvisa-sim` constraint that fixture values are UTF-8 encoded strings with `\r` and `\n` normalization, not an arbitrary raw-byte literal format.
+
+Files added or updated
+
+- `raw/notes/2026-05-08-pyvisa-basics.md`
+- `tests/fixtures/pyvisa_sim.yaml`
+- `tests/test_cli_integration.py`
+- `tests/test_pyvisa_sim_smoke.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/standards/pyvisa.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The repository now proves that the binary MCP path works against a real simulated backend, while also documenting the current boundary of what the sim fixture format can and cannot represent.

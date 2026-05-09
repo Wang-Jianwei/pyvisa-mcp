@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
+from pathlib import Path
 import sys
 import unittest
 
@@ -43,6 +45,8 @@ class DummyAdapter:
         self.last_list_query: str | None = None
         self.last_open_request: dict[str, object] | None = None
         self.closed_resources: list[DummyResource] = []
+        self.last_binary_write: bytes | None = None
+        self.binary_reads: list[bytes] = [b"\x00\x01raw", b"\x10 query"]
 
     def list_visible_resources(self, query: str):
         self.last_list_query = query
@@ -77,6 +81,19 @@ class DummyAdapter:
         if delay_s is None:
             return f"QUERY:{command}"
         return f"QUERY:{command}:delay={delay_s}"
+
+    def write_binary_message(self, resource: DummyResource, payload: bytes):
+        del resource
+        self.last_binary_write = payload
+        return len(payload)
+
+    def read_binary_message(self, resource: DummyResource):
+        del resource
+        return self.binary_reads.pop(0)
+
+    def query_binary_message(self, resource: DummyResource, command: str, *, delay_s: float | None = None):
+        del resource, command, delay_s
+        return self.binary_reads.pop(0)
 
     def read_resource_info(self, resource_name: str):
         return ResourceInfoResult(resource_name=resource_name)
@@ -231,6 +248,69 @@ class ToolsTests(unittest.TestCase):
         self.assertIsNone(snapshot.sessions[0].read_termination)
         self.assertEqual(snapshot.sessions[0].query_delay_s, 0.5)
         self.assertEqual(self.adapter.last_set_attribute, ("query_delay", 0.5))
+
+    def test_write_binary_message_accepts_base64_input(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        write_binary_message = self.mcp.tools["write_binary_message"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        result = write_binary_message(session_id, payload_mode="base64", data_base64="AQID")
+
+        self.assertEqual(result.bytes_written, 3)
+        self.assertEqual(result.payload_mode, "base64")
+        self.assertEqual(self.adapter.last_binary_write, b"\x01\x02\x03")
+
+    def test_write_binary_message_accepts_file_input(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        write_binary_message = self.mcp.tools["write_binary_message"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        with tempfile.NamedTemporaryFile(delete=False) as handle:
+            handle.write(b"\xaa\xbb")
+            temp_path = handle.name
+
+        try:
+            result = write_binary_message(session_id, payload_mode="temp_file", file_path=temp_path)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+        self.assertEqual(result.bytes_written, 2)
+        self.assertEqual(result.payload_mode, "temp_file")
+        self.assertEqual(self.adapter.last_binary_write, b"\xaa\xbb")
+
+    def test_read_binary_message_supports_base64_and_temp_file_modes(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        read_binary_message = self.mcp.tools["read_binary_message"]
+        close_resource_session = self.mcp.tools["close_resource_session"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        base64_result = read_binary_message(session_id, payload_mode="base64")
+        temp_file_result = read_binary_message(session_id, payload_mode="temp_file")
+        temp_path = Path(temp_file_result.payload.file_path)
+
+        self.assertEqual(base64_result.payload.data_base64, "AAFyYXc=")
+        self.assertEqual(temp_file_result.payload.payload_mode, "temp_file")
+        self.assertTrue(temp_path.exists())
+        self.assertEqual(temp_path.read_bytes(), b"\x10 query")
+
+        close_resource_session(session_id)
+        self.assertFalse(temp_path.exists())
+
+    def test_query_binary_message_returns_structured_payload(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        query_binary_message = self.mcp.tools["query_binary_message"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        result = query_binary_message(session_id, "CURV?", payload_mode="base64", delay_s=0.2)
+
+        self.assertEqual(result.command, "CURV?")
+        self.assertEqual(result.payload_mode, "base64")
+        self.assertEqual(result.delay_s, 0.2)
+        self.assertEqual(result.response.data_base64, "AAFyYXc=")
 
 
 if __name__ == "__main__":

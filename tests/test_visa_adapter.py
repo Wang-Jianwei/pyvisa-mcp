@@ -36,13 +36,22 @@ class FakeResource:
         self.chunk_size = None
         self.closed = False
         self.writes: list[str] = []
+        self.raw_writes: list[bytes] = []
+        self.raw_reads: list[bytes] = [b"\x00\x01RAW", b"\x23\x34QUERY"]
 
     def write(self, message: str) -> int:
         self.writes.append(message)
         return len(message)
 
+    def write_raw(self, payload: bytes) -> int:
+        self.raw_writes.append(payload)
+        return len(payload)
+
     def read(self) -> str:
         return "READ:OK"
+
+    def read_raw(self) -> bytes:
+        return self.raw_reads.pop(0)
 
     def query(self, command: str, delay: float | None = None) -> str:
         if delay is None:
@@ -184,18 +193,42 @@ class VisaAdapterTests(unittest.TestCase):
         adapter._resource_manager = FakeResourceManager(resource)
 
         bytes_written = adapter.write_message(resource, "*IDN?")
+        binary_bytes_written = adapter.write_binary_message(resource, b"\x01\x02\x03")
         read_data = adapter.read_message(resource)
+        binary_read_data = adapter.read_binary_message(resource)
         query_data = adapter.query_message(resource, "*IDN?", delay_s=0.25)
+        binary_query_data = adapter.query_binary_message(resource, "CURV?")
         info_result = adapter.read_resource_info("TCPIP0::1::INSTR")
         adapter.close_resource(resource)
 
         self.assertEqual(bytes_written, 5)
+        self.assertEqual(binary_bytes_written, 3)
         self.assertEqual(read_data, "READ:OK")
+        self.assertEqual(binary_read_data, b"\x00\x01RAW")
         self.assertEqual(query_data, "QUERY:*IDN?:delay=0.25")
+        self.assertEqual(binary_query_data, b"\x23\x34QUERY")
         self.assertIsNone(info_result.error)
         self.assertEqual(info_result.info.resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(info_result.info.interface_board_number, 0)
+        self.assertEqual(resource.raw_writes, [b"\x01\x02\x03"])
+        self.assertEqual(resource.writes, ["*IDN?", "CURV?"])
         self.assertTrue(resource.closed)
+
+    def test_binary_helpers_raise_when_resource_lacks_raw_methods(self) -> None:
+        class TextOnlyResource:
+            def write(self, message: str) -> int:
+                return len(message)
+
+            def read(self) -> str:
+                return "READ:OK"
+
+        adapter = VisaAdapter()
+        resource = TextOnlyResource()
+
+        with self.assertRaisesRegex(Exception, "Binary write is unavailable"):
+            adapter.write_binary_message(resource, b"abc")
+        with self.assertRaisesRegex(Exception, "Binary read is unavailable"):
+            adapter.read_binary_message(resource)
 
     def test_read_resource_info_returns_structured_error_on_failure(self) -> None:
         adapter = VisaAdapter()

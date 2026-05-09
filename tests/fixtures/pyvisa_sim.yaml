@@ -10,6 +10,8 @@ devices:
         r: "PYVISA-MCP,SIM,0.1"
       - q: "*idn?"
         r: "PYVISA-MCP,SIM,0.1"
+      - q: "CURV?"
+        r: "é中"
 
 resources:
   ASRL2::INSTR:

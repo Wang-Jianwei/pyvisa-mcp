@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -117,6 +118,66 @@ class QueryMessageResult(BaseModel):
         examples=["PYVISA-MCP,SIM,0.1\n", "+1.00000000E+00"],
     )
     error: OperationError | None = Field(default=None, description="Structured error when the query operation fails.")
+
+
+class BinaryPayloadReference(BaseModel):
+    payload_mode: Literal["base64", "temp_file"] = Field(
+        description="How the binary payload is surfaced to the caller: inline base64 data or a server-created temporary file path.",
+        examples=["base64", "temp_file"],
+    )
+    byte_count: int = Field(description="Exact number of raw bytes contained in the payload.", examples=[3, 4096])
+    content_type: str = Field(
+        default="application/octet-stream",
+        description="Media type describing the returned binary payload.",
+        examples=["application/octet-stream"],
+    )
+    data_base64: str | None = Field(
+        default=None,
+        description="Base64-encoded payload when payload_mode is 'base64'.",
+        examples=["AQID", "IzRRVUVSWQ=="],
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Server-local file path containing the payload when payload_mode is 'temp_file'.",
+        examples=["C:/Temp/pyvisa-mcp/session-1234.bin"],
+    )
+
+
+class WriteBinaryMessageResult(BaseModel):
+    session_id: str = Field(description="Session identifier targeted by the binary write operation.")
+    payload_mode: Literal["base64", "temp_file"] = Field(
+        description="How the binary input payload was provided by the caller.",
+        examples=["base64", "temp_file"],
+    )
+    resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
+    bytes_written: int | None = Field(default=None, description="Backend-reported byte count for the binary write operation, when available.")
+    error: OperationError | None = Field(default=None, description="Structured error when the binary write operation fails.")
+
+
+class ReadBinaryMessageResult(BaseModel):
+    session_id: str = Field(description="Session identifier targeted by the binary read operation.")
+    resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
+    payload: BinaryPayloadReference | None = Field(default=None, description="Binary payload returned by the read operation.")
+    error: OperationError | None = Field(default=None, description="Structured error when the binary read operation fails.")
+
+
+class QueryBinaryMessageResult(BaseModel):
+    session_id: str = Field(
+        description="Session identifier targeted by the binary query operation.",
+        examples=["12345678-1234-4123-8123-123456789abc"],
+    )
+    command: str = Field(
+        description="Query command string sent before reading a binary response.",
+        examples=["CURV?", "WAV:DATA?"],
+    )
+    payload_mode: Literal["base64", "temp_file"] = Field(
+        description="How the binary response payload is returned to the caller.",
+        examples=["base64", "temp_file"],
+    )
+    resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
+    delay_s: float | None = Field(default=None, description="Optional per-call delay in seconds inserted before reading the binary response.")
+    response: BinaryPayloadReference | None = Field(default=None, description="Binary payload returned by the query operation.")
+    error: OperationError | None = Field(default=None, description="Structured error when the binary query operation fails.")
 
 
 class ResourceInfoDetails(BaseModel):

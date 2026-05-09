@@ -30,6 +30,8 @@ PyVISA is a Python package for controlling instruments through the VISA standard
 - Other backends can be selected using the `@backend` suffix.
 - PyVISA can discover custom backends by importing packages named like `pyvisa_somename`.
 - PyVISA Shell supports switching to simulated or pure Python backends, including `-b sim`.
+- `pyvisa-sim` stores dialogues as bytes internally, so binary-path validation can exercise real `read_raw` flows.
+- The current `pyvisa-sim` YAML parser only normalizes `\r` and `\n` escapes before UTF-8 encoding string values, so repository-local sim fixtures are suitable for UTF-8-backed binary smoke tests but not arbitrary `\xNN` raw-byte literals.
 
 ## Diagnostics and operations
 

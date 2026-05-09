@@ -32,6 +32,9 @@ HELP_TEXT = """Commands:
   query [session_id|@] [--delay-s F] <command>
   read [session_id|@]
   write [session_id|@] <message>
+    query-bin [session_id|@] [--payload-mode base64|temp_file] [--delay-s F] <command>
+    read-bin [session_id|@] [--payload-mode base64|temp_file]
+    write-bin [session_id|@] (--base64 DATA | --file PATH)
   info <resource_name>
   get-attr [session_id|@] <attribute>
   set-attr [session_id|@] <attribute> <value>
@@ -231,6 +234,27 @@ class PyvisaMcpCli:
                     {"session_id": session_id, "message": " ".join(remaining)},
                 )
                 return self._render_payload_result(command, payload)
+            if command == "read-bin":
+                session_id, remaining = self._resolve_optional_session(arguments)
+                payload = await self._runtime.call_tool(
+                    "read_binary_message",
+                    _parse_binary_read_arguments(session_id, remaining),
+                )
+                return self._render_payload_result(command, payload)
+            if command == "write-bin":
+                session_id, remaining = self._resolve_optional_session(arguments)
+                payload = await self._runtime.call_tool(
+                    "write_binary_message",
+                    _parse_binary_write_arguments(session_id, remaining),
+                )
+                return self._render_payload_result(command, payload)
+            if command == "query-bin":
+                session_id, remaining = self._resolve_optional_session(arguments)
+                payload = await self._runtime.call_tool(
+                    "query_binary_message",
+                    _parse_binary_query_arguments(session_id, remaining),
+                )
+                return self._render_payload_result(command, payload)
             if command == "info":
                 if not arguments:
                     raise ValueError("info requires <resource_name>")
@@ -347,6 +371,14 @@ class PyvisaMcpCli:
             return CommandResult(
                 text=f"Wrote {payload.get('bytes_written')} bytes to {payload.get('resource_name')}"
             )
+        if command == "write-bin":
+            return CommandResult(
+                text=f"Wrote {payload.get('bytes_written')} binary bytes to {payload.get('resource_name')}"
+            )
+        if command == "read-bin":
+            return CommandResult(text=_render_binary_payload_summary("Read", payload.get("payload")))
+        if command == "query-bin":
+            return CommandResult(text=_render_binary_payload_summary("Query returned", payload.get("response")))
         if command == "info":
             info = payload.get("info") or {}
             return CommandResult(
@@ -408,6 +440,55 @@ def _parse_query_arguments(session_id: str, arguments: list[str]) -> dict[str, A
     return tool_args
 
 
+def _parse_binary_read_arguments(session_id: str, arguments: list[str]) -> dict[str, Any]:
+    tool_args: dict[str, Any] = {"session_id": session_id, "payload_mode": "base64"}
+    if not arguments:
+        return tool_args
+    if len(arguments) != 2 or arguments[0] != "--payload-mode":
+        raise ValueError("read-bin only accepts optional --payload-mode base64|temp_file")
+    tool_args["payload_mode"] = _parse_binary_payload_mode(arguments[1])
+    return tool_args
+
+
+def _parse_binary_write_arguments(session_id: str, arguments: list[str]) -> dict[str, Any]:
+    if len(arguments) != 2:
+        raise ValueError("write-bin requires exactly one of --base64 DATA or --file PATH")
+    option, value = arguments
+    if option == "--base64":
+        return {"session_id": session_id, "payload_mode": "base64", "data_base64": value}
+    if option == "--file":
+        return {"session_id": session_id, "payload_mode": "temp_file", "file_path": value}
+    raise ValueError("write-bin requires --base64 DATA or --file PATH")
+
+
+def _parse_binary_query_arguments(session_id: str, arguments: list[str]) -> dict[str, Any]:
+    tool_args: dict[str, Any] = {"session_id": session_id, "payload_mode": "base64"}
+    if not arguments:
+        raise ValueError("query-bin requires a command")
+
+    index = 0
+    while index < len(arguments):
+        token = arguments[index]
+        if token == "--delay-s":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --delay-s")
+            tool_args["delay_s"] = float(arguments[index + 1])
+            index += 2
+            continue
+        if token == "--payload-mode":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --payload-mode")
+            tool_args["payload_mode"] = _parse_binary_payload_mode(arguments[index + 1])
+            index += 2
+            continue
+        tool_args["command"] = " ".join(arguments[index:])
+        break
+
+    if "command" not in tool_args:
+        raise ValueError("query-bin requires a command")
+    return tool_args
+
+
 def _looks_like_session_token(token: str) -> bool:
     return token == "@" or bool(_UUID_PATTERN.match(token))
 
@@ -437,3 +518,21 @@ def _dump_json(value: Any) -> str:
 
 def _decode_escapes(value: str) -> str:
     return bytes(value, "utf-8").decode("unicode_escape")
+
+
+def _parse_binary_payload_mode(value: str) -> str:
+    if value not in {"base64", "temp_file"}:
+        raise ValueError("payload mode must be 'base64' or 'temp_file'")
+    return value
+
+
+def _render_binary_payload_summary(prefix: str, payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return f"{prefix}: no payload"
+    byte_count = payload.get("byte_count")
+    payload_mode = payload.get("payload_mode")
+    if payload_mode == "temp_file":
+        return f"{prefix} {byte_count} bytes to {payload.get('file_path')}"
+    data_base64 = str(payload.get("data_base64") or "")
+    preview = data_base64 if len(data_base64) <= 48 else f"{data_base64[:45]}..."
+    return f"{prefix} {byte_count} bytes as base64: {preview}"

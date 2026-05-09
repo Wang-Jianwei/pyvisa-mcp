@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import sleep
 from typing import Any
 
 from .config import normalize_backend_argument
@@ -119,14 +120,35 @@ class VisaAdapter:
     def write_message(self, resource: object, message: str) -> int | None:
         return getattr(resource, "write")(message)
 
+    def write_binary_message(self, resource: object, payload: bytes) -> int | None:
+        write_raw = getattr(resource, "write_raw", None)
+        if not callable(write_raw):
+            raise VisaAdapterError("Binary write is unavailable for this resource")
+        return write_raw(payload)
+
     def read_message(self, resource: object) -> str:
         return str(getattr(resource, "read")())
+
+    def read_binary_message(self, resource: object) -> bytes:
+        read_raw = getattr(resource, "read_raw", None)
+        if not callable(read_raw):
+            raise VisaAdapterError("Binary read is unavailable for this resource")
+        return bytes(read_raw())
 
     def query_message(self, resource: object, command: str, *, delay_s: float | None = None) -> str:
         query = getattr(resource, "query")
         if delay_s is None:
             return str(query(command))
         return str(query(command, delay=delay_s))
+
+    def query_binary_message(self, resource: object, command: str | bytes, *, delay_s: float | None = None) -> bytes:
+        if isinstance(command, bytes):
+            self.write_binary_message(resource, command)
+        else:
+            getattr(resource, "write")(command)
+        if delay_s is not None:
+            sleep(delay_s)
+        return self.read_binary_message(resource)
 
     def read_resource_info(self, resource_name: str) -> ResourceInfoResult:
         try:

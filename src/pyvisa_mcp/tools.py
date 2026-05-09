@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import base64
+from pathlib import Path
+import tempfile
 from typing import Annotated
 from typing import Any
+from typing import Literal
 
 from pydantic import Field
 
 from .config import ServerConfig
-from .schemas import AttributeResult, BackendStatus, CloseResourceResult, OpenResourceResult, QueryMessageResult, ReadMessageResult, ResourceInfoResult, VisibleResourcesResult, WriteMessageResult
+from .schemas import AttributeResult, BackendStatus, BinaryPayloadReference, CloseResourceResult, OpenResourceResult, QueryBinaryMessageResult, QueryMessageResult, ReadBinaryMessageResult, ReadMessageResult, ResourceInfoResult, VisibleResourcesResult, WriteBinaryMessageResult, WriteMessageResult
 from .session_registry import SessionRegistry, UnknownSessionError
 from .visa_adapter import VisaAdapter, operation_error_from_exception
 
@@ -103,6 +107,27 @@ AttributeValueArg = Annotated[
         examples=["3000", "\n", "null"],
     ),
 ]
+BinaryPayloadModeArg = Annotated[
+    Literal["base64", "temp_file"],
+    Field(
+        description="Binary payload transport mode. Use 'base64' for inline JSON-safe transport or 'temp_file' to read from or return a server-local file path.",
+        examples=["base64", "temp_file"],
+    ),
+]
+BinaryDataBase64Arg = Annotated[
+    str | None,
+    Field(
+        description="Base64-encoded binary payload used when payload_mode is 'base64'.",
+        examples=["AQID", "AAECaGVsbG8="],
+    ),
+]
+BinaryFilePathArg = Annotated[
+    str | None,
+    Field(
+        description="Local file path used when payload_mode is 'temp_file'. For reads and binary queries this is populated in the result, not the request.",
+        examples=["C:/Temp/instrument.bin"],
+    ),
+]
 
 _INTEGER_ATTRIBUTES = {"timeout", "chunk_size"}
 _FLOAT_ATTRIBUTES = {"query_delay"}
@@ -116,6 +141,9 @@ TOOL_NAMES = [
     "write_message",
     "read_message",
     "query_message",
+    "write_binary_message",
+    "read_binary_message",
+    "query_binary_message",
     "inspect_resource_info",
     "get_resource_attribute",
     "set_resource_attribute",
@@ -160,6 +188,58 @@ def coerce_attribute_value(attribute: str, value: AttributeValue) -> AttributeVa
         raise ValueError(f"Attribute '{normalized_attribute}' expects a string or null value")
 
     return value
+
+
+def _decode_binary_input(
+    *,
+    payload_mode: Literal["base64", "temp_file"],
+    data_base64: str | None,
+    file_path: str | None,
+) -> bytes:
+    if payload_mode == "base64":
+        if data_base64 is None:
+            raise ValueError("base64 payload_mode requires data_base64")
+        try:
+            return base64.b64decode(data_base64, validate=True)
+        except Exception as exc:
+            raise ValueError("Invalid base64 payload") from exc
+
+    if not file_path:
+        raise ValueError("temp_file payload_mode requires file_path")
+    return Path(file_path).read_bytes()
+
+
+def _encode_binary_output(
+    *,
+    session_id: str,
+    payload_mode: Literal["base64", "temp_file"],
+    payload: bytes,
+    registry: SessionRegistry,
+) -> BinaryPayloadReference:
+    if payload_mode == "base64":
+        return BinaryPayloadReference(
+            payload_mode=payload_mode,
+            byte_count=len(payload),
+            data_base64=base64.b64encode(payload).decode("ascii"),
+        )
+
+    temp_dir = Path(tempfile.gettempdir()) / "pyvisa-mcp"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="wb",
+        delete=False,
+        dir=temp_dir,
+        prefix=f"{session_id}-",
+        suffix=".bin",
+    ) as handle:
+        handle.write(payload)
+        temp_path = Path(handle.name)
+    registry.register_temp_file(session_id, temp_path)
+    return BinaryPayloadReference(
+        payload_mode=payload_mode,
+        byte_count=len(payload),
+        file_path=str(temp_path),
+    )
 
 
 def register_tools(
@@ -294,6 +374,93 @@ def register_tools(
             return QueryMessageResult(
                 session_id=session_id,
                 command=command,
+                delay_s=delay_s,
+                error=operation_error_from_exception(exc),
+            )
+
+    @mcp.tool(name="write_binary_message")
+    def write_binary_message(
+        session_id: SessionIdArg,
+        payload_mode: BinaryPayloadModeArg = "base64",
+        data_base64: BinaryDataBase64Arg = None,
+        file_path: BinaryFilePathArg = None,
+    ) -> WriteBinaryMessageResult:
+        """Write binary bytes to an opened session from base64 data or a local file."""
+        try:
+            managed = registry.require(session_id)
+            payload = _decode_binary_input(
+                payload_mode=payload_mode,
+                data_base64=data_base64,
+                file_path=file_path,
+            )
+            bytes_written = adapter.write_binary_message(managed.resource, payload)
+            return WriteBinaryMessageResult(
+                session_id=session_id,
+                payload_mode=payload_mode,
+                resource_name=managed.resource_name,
+                bytes_written=bytes_written,
+            )
+        except Exception as exc:
+            return WriteBinaryMessageResult(
+                session_id=session_id,
+                payload_mode=payload_mode,
+                error=operation_error_from_exception(exc),
+            )
+
+    @mcp.tool(name="read_binary_message")
+    def read_binary_message(
+        session_id: SessionIdArg,
+        payload_mode: BinaryPayloadModeArg = "base64",
+    ) -> ReadBinaryMessageResult:
+        """Read binary bytes from an opened session as base64 or a temporary file reference."""
+        try:
+            managed = registry.require(session_id)
+            payload = adapter.read_binary_message(managed.resource)
+            return ReadBinaryMessageResult(
+                session_id=session_id,
+                resource_name=managed.resource_name,
+                payload=_encode_binary_output(
+                    session_id=session_id,
+                    payload_mode=payload_mode,
+                    payload=payload,
+                    registry=registry,
+                ),
+            )
+        except Exception as exc:
+            return ReadBinaryMessageResult(
+                session_id=session_id,
+                error=operation_error_from_exception(exc),
+            )
+
+    @mcp.tool(name="query_binary_message")
+    def query_binary_message(
+        session_id: SessionIdArg,
+        command: CommandArg,
+        payload_mode: BinaryPayloadModeArg = "base64",
+        delay_s: QueryDelayArg = None,
+    ) -> QueryBinaryMessageResult:
+        """Issue a text query command and return a binary response as base64 or a temporary file reference."""
+        try:
+            managed = registry.require(session_id)
+            response = adapter.query_binary_message(managed.resource, command, delay_s=delay_s)
+            return QueryBinaryMessageResult(
+                session_id=session_id,
+                command=command,
+                payload_mode=payload_mode,
+                resource_name=managed.resource_name,
+                delay_s=delay_s,
+                response=_encode_binary_output(
+                    session_id=session_id,
+                    payload_mode=payload_mode,
+                    payload=response,
+                    registry=registry,
+                ),
+            )
+        except Exception as exc:
+            return QueryBinaryMessageResult(
+                session_id=session_id,
+                command=command,
+                payload_mode=payload_mode,
                 delay_s=delay_s,
                 error=operation_error_from_exception(exc),
             )

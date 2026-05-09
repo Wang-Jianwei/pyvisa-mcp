@@ -18,6 +18,7 @@ The repository currently includes:
 - context-rich tool and resource result models with counts and resource metadata
 - a sim-backed smoke test path using `pyvisa-sim` custom profiles
 - a first interactive CLI mode that launches the local server and talks to it through a real MCP stdio session
+- explicit binary VISA read, write, and query tools with either inline base64 transport or server-managed temporary-file output
 
 ## Planned implementation path
 
@@ -111,6 +112,15 @@ For debugging and automated interaction, the CLI also supports:
 - `--json` to render responses as JSON
 - `--no-prompt` to suppress the prompt when driving the REPL from piped stdin
 
+Binary REPL commands:
+
+- `write-bin --base64 AQID`
+- `write-bin --file C:/Temp/capture.bin`
+- `read-bin --payload-mode base64`
+- `query-bin --payload-mode temp_file "CURV?"`
+
+When `read-bin` or `query-bin` uses `temp_file`, the server writes the payload to a temporary file, returns that path, and cleans it up automatically when the owning session is closed.
+
 ## Test
 
 ```bash
@@ -130,6 +140,9 @@ Tools:
 - write message
 - read message
 - query message
+- write binary message
+- read binary message
+- query binary message
 - inspect resource info
 - get backend diagnostics
 - get/set resource attributes

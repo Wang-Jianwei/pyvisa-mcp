@@ -69,6 +69,37 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertIn('"response": "PYVISA-MCP,SIM,0.1\\n"', completed.stdout)
         self.assertIn('"closed": true', completed.stdout)
 
+    @unittest.skipUnless(importlib.util.find_spec("pyvisa_sim") is not None, "pyvisa-sim is not installed")
+    def test_cli_repl_can_query_binary_payload_from_sim_backend(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        profile = Path(__file__).resolve().parent / "fixtures" / "pyvisa_sim.yaml"
+        env = os.environ.copy()
+        existing_pythonpath = env.get("PYTHONPATH")
+        src_path = str(root / "src")
+        env["PYTHONPATH"] = src_path if not existing_pythonpath else os.pathsep.join([src_path, existing_pythonpath])
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pyvisa_mcp.cli",
+                "--backend",
+                f"{profile.as_posix()}@sim",
+                "--json",
+                "--no-prompt",
+            ],
+            input="open ASRL2::INSTR\nquery-bin CURV?\nclose\nexit\n",
+            capture_output=True,
+            text=True,
+            cwd=root,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn('"payload_mode": "base64"', completed.stdout)
+        self.assertIn('"data_base64": "w6nkuK0K"', completed.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
