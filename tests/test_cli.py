@@ -41,6 +41,36 @@ class FakeRuntime:
                 "response": "PYVISA-MCP,SIM,0.1\n",
                 "error": None,
             }
+        if name == "read_binary_values":
+            return {
+                "session_id": str(arguments["session_id"]),
+                "resource_name": "ASRL2::INSTR",
+                "payload": {
+                    "data_type": str(arguments.get("data_type", "f")),
+                    "is_big_endian": bool(arguments.get("is_big_endian", False)),
+                    "header_format": str(arguments.get("header_format", "ieee")),
+                    "expect_termination": bool(arguments.get("expect_termination", True)),
+                    "value_count": 3,
+                    "values": [1.0, 2.5, 3.75],
+                },
+                "error": None,
+            }
+        if name == "query_binary_values":
+            return {
+                "session_id": str(arguments["session_id"]),
+                "command": str(arguments["command"]),
+                "resource_name": "ASRL2::INSTR",
+                "delay_s": arguments.get("delay_s"),
+                "payload": {
+                    "data_type": str(arguments.get("data_type", "f")),
+                    "is_big_endian": bool(arguments.get("is_big_endian", False)),
+                    "header_format": str(arguments.get("header_format", "ieee")),
+                    "expect_termination": bool(arguments.get("expect_termination", True)),
+                    "value_count": 3,
+                    "values": [1.0, 2.5, 3.75],
+                },
+                "error": None,
+            }
         if name == "read_binary_message":
             file_path = arguments.get("output_file_path")
             return {
@@ -171,6 +201,56 @@ class CliCommandTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result.error)
         self.assertIn("--output-conflict requires --output-file PATH", result.text)
+
+    async def test_binary_values_commands_render_and_forward_arguments(self) -> None:
+        runtime = FakeRuntime()
+        cli = PyvisaMcpCli(runtime)
+
+        await cli.execute_line("open ASRL2::INSTR")
+        read_result = await cli.execute_line("read-values --datatype d --header-format hp --big-endian --expect-termination false")
+        query_result = await cli.execute_line("query-values --datatype f --delay-s 0.25 WAV:DATA?")
+
+        self.assertIn("Read 3 values (d): 1.0, 2.5, 3.75", read_result.text)
+        self.assertIn("Query returned 3 values (f): 1.0, 2.5, 3.75", query_result.text)
+        self.assertIn(
+            (
+                "call_tool",
+                "read_binary_values",
+                {
+                    "session_id": "11111111-1111-4111-8111-111111111111",
+                    "data_type": "d",
+                    "header_format": "hp",
+                    "is_big_endian": True,
+                    "expect_termination": False,
+                },
+            ),
+            runtime.calls,
+        )
+        self.assertIn(
+            (
+                "call_tool",
+                "query_binary_values",
+                {
+                    "session_id": "11111111-1111-4111-8111-111111111111",
+                    "data_type": "f",
+                    "header_format": "ieee",
+                    "is_big_endian": False,
+                    "expect_termination": True,
+                    "delay_s": 0.25,
+                    "command": "WAV:DATA?",
+                },
+            ),
+            runtime.calls,
+        )
+
+    async def test_binary_values_commands_reject_invalid_bool_literal(self) -> None:
+        cli = PyvisaMcpCli(FakeRuntime())
+
+        await cli.execute_line("open ASRL2::INSTR")
+        result = await cli.execute_line("read-values --expect-termination maybe")
+
+        self.assertTrue(result.error)
+        self.assertIn("--expect-termination must be 'true' or 'false'", result.text)
 
     async def test_binary_commands_forward_output_conflict_policy(self) -> None:
         runtime = FakeRuntime()

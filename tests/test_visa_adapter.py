@@ -38,6 +38,9 @@ class FakeResource:
         self.writes: list[str] = []
         self.raw_writes: list[bytes] = []
         self.raw_reads: list[bytes] = [b"\x00\x01RAW", b"\x23\x34QUERY"]
+        self.binary_value_reads: list[list[float]] = [[1.0, 2.5, 3.75], [4.0, 5.0]]
+        self.last_binary_read_kwargs: dict[str, object] | None = None
+        self.last_binary_query: tuple[str, dict[str, object]] | None = None
 
     def write(self, message: str) -> int:
         self.writes.append(message)
@@ -53,10 +56,18 @@ class FakeResource:
     def read_raw(self) -> bytes:
         return self.raw_reads.pop(0)
 
+    def read_binary_values(self, **kwargs: object) -> list[float]:
+        self.last_binary_read_kwargs = dict(kwargs)
+        return self.binary_value_reads.pop(0)
+
     def query(self, command: str, delay: float | None = None) -> str:
         if delay is None:
             return f"QUERY:{command}"
         return f"QUERY:{command}:delay={delay}"
+
+    def query_binary_values(self, command: str, **kwargs: object) -> list[float]:
+        self.last_binary_query = (command, dict(kwargs))
+        return self.binary_value_reads.pop(0)
 
     def close(self) -> None:
         self.closed = True
@@ -196,8 +207,24 @@ class VisaAdapterTests(unittest.TestCase):
         binary_bytes_written = adapter.write_binary_message(resource, b"\x01\x02\x03")
         read_data = adapter.read_message(resource)
         binary_read_data = adapter.read_binary_message(resource)
+        binary_values = adapter.read_binary_values(
+            resource,
+            data_type="d",
+            is_big_endian=True,
+            header_format="hp",
+            expect_termination=False,
+        )
         query_data = adapter.query_message(resource, "*IDN?", delay_s=0.25)
         binary_query_data = adapter.query_binary_message(resource, "CURV?")
+        binary_query_values = adapter.query_binary_values(
+            resource,
+            "WAV:DATA?",
+            data_type="f",
+            is_big_endian=False,
+            header_format="ieee",
+            expect_termination=True,
+            delay_s=0.5,
+        )
         info_result = adapter.read_resource_info("TCPIP0::1::INSTR")
         adapter.close_resource(resource)
 
@@ -205,13 +232,39 @@ class VisaAdapterTests(unittest.TestCase):
         self.assertEqual(binary_bytes_written, 3)
         self.assertEqual(read_data, "READ:OK")
         self.assertEqual(binary_read_data, b"\x00\x01RAW")
+        self.assertEqual(binary_values, [1.0, 2.5, 3.75])
         self.assertEqual(query_data, "QUERY:*IDN?:delay=0.25")
         self.assertEqual(binary_query_data, b"\x23\x34QUERY")
+        self.assertEqual(binary_query_values, [4.0, 5.0])
         self.assertIsNone(info_result.error)
         self.assertEqual(info_result.info.resource_name, "TCPIP0::1::INSTR")
         self.assertEqual(info_result.info.interface_board_number, 0)
         self.assertEqual(resource.raw_writes, [b"\x01\x02\x03"])
         self.assertEqual(resource.writes, ["*IDN?", "CURV?"])
+        self.assertEqual(
+            resource.last_binary_read_kwargs,
+            {
+                "datatype": "d",
+                "is_big_endian": True,
+                "header_fmt": "hp",
+                "expect_termination": False,
+                "container": list,
+            },
+        )
+        self.assertEqual(
+            resource.last_binary_query,
+            (
+                "WAV:DATA?",
+                {
+                    "datatype": "f",
+                    "is_big_endian": False,
+                    "header_fmt": "ieee",
+                    "expect_termination": True,
+                    "container": list,
+                    "delay": 0.5,
+                },
+            ),
+        )
         self.assertTrue(resource.closed)
 
     def test_binary_helpers_raise_when_resource_lacks_raw_methods(self) -> None:
@@ -229,6 +282,10 @@ class VisaAdapterTests(unittest.TestCase):
             adapter.write_binary_message(resource, b"abc")
         with self.assertRaisesRegex(Exception, "Binary read is unavailable"):
             adapter.read_binary_message(resource)
+        with self.assertRaisesRegex(Exception, "Binary values read is unavailable"):
+            adapter.read_binary_values(resource)
+        with self.assertRaisesRegex(Exception, "Binary values query is unavailable"):
+            adapter.query_binary_values(resource, "CURV?")
 
     def test_read_resource_info_returns_structured_error_on_failure(self) -> None:
         adapter = VisaAdapter()

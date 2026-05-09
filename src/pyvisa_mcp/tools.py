@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import Field
 
 from .config import ServerConfig
-from .schemas import AttributeResult, BackendStatus, BinaryPayloadReference, CloseResourceResult, OpenResourceResult, QueryBinaryMessageResult, QueryMessageResult, ReadBinaryMessageResult, ReadMessageResult, ResourceInfoResult, VisibleResourcesResult, WriteBinaryMessageResult, WriteMessageResult
+from .schemas import AttributeResult, BackendStatus, BinaryPayloadReference, BinaryValuesPayload, CloseResourceResult, OpenResourceResult, QueryBinaryMessageResult, QueryBinaryValuesResult, QueryMessageResult, ReadBinaryMessageResult, ReadBinaryValuesResult, ReadMessageResult, ResourceInfoResult, VisibleResourcesResult, WriteBinaryMessageResult, WriteMessageResult
 from .session_registry import SessionRegistry, UnknownSessionError
 from .visa_adapter import VisaAdapter, operation_error_from_exception
 
@@ -142,6 +142,34 @@ BinaryOutputConflictArg = Annotated[
         examples=["error", "overwrite"],
     ),
 ]
+BinaryDataTypeArg = Annotated[
+    str,
+    Field(
+        description="PyVISA binary values datatype code used for decoding, such as 'f' for float32, 'd' for float64, or 'h' for int16.",
+        examples=["f", "d", "h"],
+    ),
+]
+BinaryHeaderFormatArg = Annotated[
+    Literal["ieee", "hp", "empty"],
+    Field(
+        description="Binary block header format expected while decoding numeric values.",
+        examples=["ieee", "hp", "empty"],
+    ),
+]
+BinaryBigEndianArg = Annotated[
+    bool,
+    Field(
+        description="Whether the binary numeric values should be decoded as big-endian byte order.",
+        examples=[False, True],
+    ),
+]
+BinaryExpectTerminationArg = Annotated[
+    bool,
+    Field(
+        description="Whether the decoder should expect a termination character after the binary value block.",
+        examples=[True, False],
+    ),
+]
 
 _INTEGER_ATTRIBUTES = {"timeout", "chunk_size"}
 _FLOAT_ATTRIBUTES = {"query_delay"}
@@ -158,10 +186,30 @@ TOOL_NAMES = [
     "write_binary_message",
     "read_binary_message",
     "query_binary_message",
+    "read_binary_values",
+    "query_binary_values",
     "inspect_resource_info",
     "get_resource_attribute",
     "set_resource_attribute",
 ]
+
+
+def _build_binary_values_payload(
+    *,
+    values: list[Any],
+    data_type: str,
+    is_big_endian: bool,
+    header_format: str,
+    expect_termination: bool,
+) -> BinaryValuesPayload:
+    return BinaryValuesPayload(
+        data_type=data_type,
+        is_big_endian=is_big_endian,
+        header_format=header_format,
+        expect_termination=expect_termination,
+        value_count=len(values),
+        values=[int(value) if isinstance(value, bool) else value for value in values],
+    )
 
 
 def coerce_attribute_value(attribute: str, value: AttributeValue) -> AttributeValue:
@@ -506,6 +554,84 @@ def register_tools(
                 session_id=session_id,
                 command=command,
                 payload_mode=payload_mode,
+                delay_s=delay_s,
+                error=operation_error_from_exception(exc),
+            )
+
+    @mcp.tool(name="read_binary_values")
+    def read_binary_values(
+        session_id: SessionIdArg,
+        data_type: BinaryDataTypeArg = "f",
+        is_big_endian: BinaryBigEndianArg = False,
+        header_format: BinaryHeaderFormatArg = "ieee",
+        expect_termination: BinaryExpectTerminationArg = True,
+    ) -> ReadBinaryValuesResult:
+        """Read and decode a binary numeric block from an opened session."""
+        try:
+            managed = registry.require(session_id)
+            values = adapter.read_binary_values(
+                managed.resource,
+                data_type=data_type,
+                is_big_endian=is_big_endian,
+                header_format=header_format,
+                expect_termination=expect_termination,
+            )
+            return ReadBinaryValuesResult(
+                session_id=session_id,
+                resource_name=managed.resource_name,
+                payload=_build_binary_values_payload(
+                    values=values,
+                    data_type=data_type,
+                    is_big_endian=is_big_endian,
+                    header_format=header_format,
+                    expect_termination=expect_termination,
+                ),
+            )
+        except Exception as exc:
+            return ReadBinaryValuesResult(
+                session_id=session_id,
+                error=operation_error_from_exception(exc),
+            )
+
+    @mcp.tool(name="query_binary_values")
+    def query_binary_values(
+        session_id: SessionIdArg,
+        command: CommandArg,
+        data_type: BinaryDataTypeArg = "f",
+        is_big_endian: BinaryBigEndianArg = False,
+        header_format: BinaryHeaderFormatArg = "ieee",
+        expect_termination: BinaryExpectTerminationArg = True,
+        delay_s: QueryDelayArg = None,
+    ) -> QueryBinaryValuesResult:
+        """Issue a query command and decode the binary numeric block in the response."""
+        try:
+            managed = registry.require(session_id)
+            values = adapter.query_binary_values(
+                managed.resource,
+                command,
+                data_type=data_type,
+                is_big_endian=is_big_endian,
+                header_format=header_format,
+                expect_termination=expect_termination,
+                delay_s=delay_s,
+            )
+            return QueryBinaryValuesResult(
+                session_id=session_id,
+                command=command,
+                resource_name=managed.resource_name,
+                delay_s=delay_s,
+                payload=_build_binary_values_payload(
+                    values=values,
+                    data_type=data_type,
+                    is_big_endian=is_big_endian,
+                    header_format=header_format,
+                    expect_termination=expect_termination,
+                ),
+            )
+        except Exception as exc:
+            return QueryBinaryValuesResult(
+                session_id=session_id,
+                command=command,
                 delay_s=delay_s,
                 error=operation_error_from_exception(exc),
             )

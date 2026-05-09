@@ -504,3 +504,49 @@ Files added or updated
 Why it matters
 
 - The overwrite semantics are now both documented and executable, which reduces ambiguity for automation and keeps caller-managed capture paths safe by default.
+
+## [2026-05-09] implementation | add binary numeric value tools
+
+What changed
+
+- Added adapter, schema, tool, and CLI support for decoding binary numeric blocks through `read_binary_values` and `query_binary_values`.
+- Exposed datatype, header format, endianness, termination expectation, and optional query delay as explicit tool and CLI parameters.
+- Returned decoded numeric arrays inline so agents can inspect value blocks directly without an extra file handoff step.
+
+Files added or updated
+
+- `README.md`
+- `src/pyvisa_mcp/cli_runtime.py`
+- `src/pyvisa_mcp/schemas.py`
+- `src/pyvisa_mcp/tools.py`
+- `src/pyvisa_mcp/visa_adapter.py`
+- `tests/test_cli.py`
+- `tests/test_server.py`
+- `tests/test_tools.py`
+- `tests/test_visa_adapter.py`
+- `wiki/project/architecture-plan.md`
+- `wiki/log.md`
+
+Why it matters
+
+- The MCP surface can now represent the common SCPI waveform pattern of binary numeric blocks as structured arrays, not only as opaque bytes.
+
+## [2026-05-09] verification | validate binary numeric value tools
+
+What changed
+
+- Added focused adapter tests for binary value decoding parameter passthrough and unsupported-resource errors.
+- Added focused tool, CLI, and server-schema tests for decoded numeric arrays and their argument metadata.
+- Kept this batch mock-first because the current repository-local `pyvisa-sim` fixture format does not yet provide a realistic numeric binary block path.
+
+Files added or updated
+
+- `tests/test_cli.py`
+- `tests/test_server.py`
+- `tests/test_tools.py`
+- `tests/test_visa_adapter.py`
+- `wiki/log.md`
+
+Why it matters
+
+- Numeric binary-value support now has executable regression coverage across the adapter, tool, CLI, and schema layers, while the current real-backend gap is explicitly documented instead of being left implicit.

@@ -59,6 +59,7 @@ The code currently provides:
 - BaseModel-backed result schemas with field-level descriptions that flow into FastMCP output schemas
 - targeted schema examples on key input and output fields so agents can see representative session IDs, resource names, commands, attribute names, and error codes
 - binary VISA read, write, and query support with explicit `base64` and `temp_file` payload modes
+- binary numeric-value decoding support for `read_binary_values` and `query_binary_values`
 - server-managed temporary binary file cleanup tied to MCP session lifecycle
 - optional caller-managed output paths for binary read and query operations when a stable file location is needed beyond session close
 - explicit output-file conflict policy so caller-managed captures fail safely by default and only overwrite when requested
@@ -111,9 +112,10 @@ The repository now has stdlib-only tests for:
 - output schema checks that confirm FastMCP exposes result-field descriptions to agents
 - schema checks that confirm FastMCP exposes representative examples for key input and output fields
 - mocked binary tool coverage for base64 and temporary-file payload paths
+- mocked binary numeric-value coverage for datatype, header-format, endianness, and delay handling
 - session-registry cleanup checks for server-managed temporary binary files
 - sim-backed binary query validation through the repository-local `pyvisa-sim` profile and the CLI process path
 - explicit-output-file checks proving caller-managed binary captures survive session close
 - overwrite-policy checks proving existing caller-managed files are preserved by default and replaced only when explicitly requested
 
-The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` and UTF-8-backed binary `CURV?` paths, plus richer CLI command coverage for attribute and resource-info workflows.
+The next verification step should focus on broader sim-profile command coverage beyond the current `*IDN?` and UTF-8-backed binary `CURV?` paths, and on finding a realistic backend fixture path for numeric binary blocks so `read_binary_values` and `query_binary_values` can move beyond mock-first validation.

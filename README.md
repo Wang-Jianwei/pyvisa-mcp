@@ -116,6 +116,8 @@ Binary REPL commands:
 
 - `write-bin --base64 AQID`
 - `write-bin --file C:/Temp/capture.bin`
+- `read-values --datatype d --header-format hp --big-endian --expect-termination false`
+- `query-values --datatype f --delay-s 0.25 "WAV:DATA?"`
 - `read-bin --payload-mode base64`
 - `read-bin --payload-mode temp_file --output-file D:/captures/read.bin`
 - `query-bin --payload-mode temp_file "CURV?"`
@@ -125,6 +127,7 @@ Binary REPL commands:
 When `read-bin` or `query-bin` uses `temp_file` without `--output-file`, the server writes the payload to a temporary file, returns that path, and cleans it up automatically when the owning session is closed.
 When `--output-file` is provided, the payload is written to that caller-managed path instead and is not removed on session close.
 When `--output-file` points to an existing file, the default behavior is to fail with a file-exists error; pass `--output-conflict overwrite` to replace the existing file explicitly.
+`read-values` and `query-values` decode binary numeric blocks into inline JSON arrays, which is appropriate for modest waveform or sample buffers that should remain directly visible to agents.
 
 ## Test
 

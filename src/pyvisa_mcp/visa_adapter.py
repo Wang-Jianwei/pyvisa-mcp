@@ -150,6 +150,53 @@ class VisaAdapter:
             sleep(delay_s)
         return self.read_binary_message(resource)
 
+    def read_binary_values(
+        self,
+        resource: object,
+        *,
+        data_type: str = "f",
+        is_big_endian: bool = False,
+        header_format: str = "ieee",
+        expect_termination: bool = True,
+    ) -> list[Any]:
+        read_binary_values = getattr(resource, "read_binary_values", None)
+        if not callable(read_binary_values):
+            raise VisaAdapterError("Binary values read is unavailable for this resource")
+        values = read_binary_values(
+            datatype=data_type,
+            is_big_endian=is_big_endian,
+            header_fmt=header_format,
+            expect_termination=expect_termination,
+            container=list,
+        )
+        return list(values)
+
+    def query_binary_values(
+        self,
+        resource: object,
+        command: str,
+        *,
+        data_type: str = "f",
+        is_big_endian: bool = False,
+        header_format: str = "ieee",
+        expect_termination: bool = True,
+        delay_s: float | None = None,
+    ) -> list[Any]:
+        query_binary_values = getattr(resource, "query_binary_values", None)
+        if not callable(query_binary_values):
+            raise VisaAdapterError("Binary values query is unavailable for this resource")
+        kwargs: dict[str, Any] = {
+            "datatype": data_type,
+            "is_big_endian": is_big_endian,
+            "header_fmt": header_format,
+            "expect_termination": expect_termination,
+            "container": list,
+        }
+        if delay_s is not None:
+            kwargs["delay"] = delay_s
+        values = query_binary_values(command, **kwargs)
+        return list(values)
+
     def read_resource_info(self, resource_name: str) -> ResourceInfoResult:
         try:
             manager = self._get_resource_manager()

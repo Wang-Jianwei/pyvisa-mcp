@@ -38,6 +38,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         binary_write_schema = tools_by_name["write_binary_message"].inputSchema["properties"]
         binary_query_schema = tools_by_name["query_binary_message"].inputSchema["properties"]
         binary_read_schema = tools_by_name["read_binary_message"].inputSchema["properties"]
+        binary_values_query_schema = tools_by_name["query_binary_values"].inputSchema["properties"]
 
         self.assertIn("Fully qualified VISA resource name", open_schema["resource_name"]["description"])
         self.assertIn("Open timeout in milliseconds", open_schema["open_timeout_ms"]["description"])
@@ -47,6 +48,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Binary payload transport mode", binary_write_schema["payload_mode"]["description"])
         self.assertIn("caller-managed file path", binary_query_schema["output_file_path"]["description"])
         self.assertIn("Conflict policy for output_file_path", binary_read_schema["output_file_conflict"]["description"])
+        self.assertIn("datatype code used for decoding", binary_values_query_schema["data_type"]["description"])
 
     async def test_tool_schemas_include_parameter_examples(self) -> None:
         tools = await self.server.list_tools()
@@ -58,6 +60,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         binary_write_schema = tools_by_name["write_binary_message"].inputSchema["properties"]
         binary_query_schema = tools_by_name["query_binary_message"].inputSchema["properties"]
         binary_read_schema = tools_by_name["read_binary_message"].inputSchema["properties"]
+        binary_values_query_schema = tools_by_name["query_binary_values"].inputSchema["properties"]
 
         self.assertIn("ASRL2::INSTR", open_schema["resource_name"]["examples"])
         self.assertIn(5000, open_schema["open_timeout_ms"]["examples"])
@@ -67,6 +70,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("base64", binary_write_schema["payload_mode"]["examples"])
         self.assertIn("D:/captures/waveform.bin", binary_query_schema["output_file_path"]["examples"])
         self.assertIn("overwrite", binary_read_schema["output_file_conflict"]["examples"])
+        self.assertIn("d", binary_values_query_schema["data_type"]["examples"])
 
     async def test_tool_output_schemas_include_result_descriptions(self) -> None:
         tools = await self.server.list_tools()
@@ -75,6 +79,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         open_schema = tools_by_name["open_resource_session"].outputSchema
         query_schema = tools_by_name["query_message"].outputSchema
         binary_read_schema = tools_by_name["read_binary_message"].outputSchema
+        binary_values_read_schema = tools_by_name["read_binary_values"].outputSchema
 
         self.assertIn("Resource name requested by the open operation", open_schema["properties"]["resource_name"]["description"])
         self.assertIn("Session details when the resource opens successfully", open_schema["properties"]["session"]["description"])
@@ -83,6 +88,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Machine-readable error code", query_schema["$defs"]["OperationError"]["properties"]["code"]["description"])
         self.assertIn("Binary payload returned by the read operation", binary_read_schema["properties"]["payload"]["description"])
         self.assertIn("deleted automatically when the owning session closes", binary_read_schema["$defs"]["BinaryPayloadReference"]["properties"]["cleanup_on_close"]["description"])
+        self.assertIn("Decoded numeric values returned by the binary values read operation", binary_values_read_schema["properties"]["payload"]["description"])
 
     async def test_tool_output_schemas_include_result_examples(self) -> None:
         tools = await self.server.list_tools()
@@ -92,6 +98,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         query_schema = tools_by_name["query_message"].outputSchema
         attribute_schema = tools_by_name["get_resource_attribute"].outputSchema
         binary_query_schema = tools_by_name["query_binary_message"].outputSchema
+        binary_values_query_schema = tools_by_name["query_binary_values"].outputSchema
 
         self.assertIn("ASRL2::INSTR", open_schema["properties"]["resource_name"]["examples"])
         self.assertIn("12345678-1234-4123-8123-123456789abc", open_schema["$defs"]["SessionSummary"]["properties"]["session_id"]["examples"])
@@ -101,6 +108,7 @@ class ServerIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("base64", binary_query_schema["properties"]["payload_mode"]["examples"])
         self.assertIn("AQID", binary_query_schema["$defs"]["BinaryPayloadReference"]["properties"]["data_base64"]["examples"])
         self.assertIn(False, binary_query_schema["$defs"]["BinaryPayloadReference"]["properties"]["cleanup_on_close"]["examples"])
+        self.assertIn([1.0, 2.5, 3.75], binary_values_query_schema["$defs"]["BinaryValuesPayload"]["properties"]["values"]["examples"])
 
     async def test_capability_and_backend_resources_match_server_contract(self) -> None:
         capability_payload = json.loads((await self.server.read_resource("pyvisa-mcp://capabilities"))[0].content)

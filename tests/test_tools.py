@@ -46,6 +46,9 @@ class DummyAdapter:
         self.closed_resources: list[DummyResource] = []
         self.last_binary_write: bytes | None = None
         self.binary_reads: list[bytes] = [b"\x00\x01raw", b"\x10 query"]
+        self.binary_value_reads: list[list[float]] = [[1.0, 2.5], [3.5, 4.5]]
+        self.last_binary_values_read_kwargs: dict[str, object] | None = None
+        self.last_binary_values_query: tuple[str, dict[str, object]] | None = None
 
     def list_visible_resources(self, query: str):
         self.last_list_query = query
@@ -93,6 +96,48 @@ class DummyAdapter:
     def query_binary_message(self, resource: DummyResource, command: str, *, delay_s: float | None = None):
         del resource, command, delay_s
         return self.binary_reads.pop(0)
+
+    def read_binary_values(
+        self,
+        resource: DummyResource,
+        *,
+        data_type: str = "f",
+        is_big_endian: bool = False,
+        header_format: str = "ieee",
+        expect_termination: bool = True,
+    ):
+        del resource
+        self.last_binary_values_read_kwargs = {
+            "data_type": data_type,
+            "is_big_endian": is_big_endian,
+            "header_format": header_format,
+            "expect_termination": expect_termination,
+        }
+        return self.binary_value_reads.pop(0)
+
+    def query_binary_values(
+        self,
+        resource: DummyResource,
+        command: str,
+        *,
+        data_type: str = "f",
+        is_big_endian: bool = False,
+        header_format: str = "ieee",
+        expect_termination: bool = True,
+        delay_s: float | None = None,
+    ):
+        del resource
+        self.last_binary_values_query = (
+            command,
+            {
+                "data_type": data_type,
+                "is_big_endian": is_big_endian,
+                "header_format": header_format,
+                "expect_termination": expect_termination,
+                "delay_s": delay_s,
+            },
+        )
+        return self.binary_value_reads.pop(0)
 
     def read_resource_info(self, resource_name: str):
         return ResourceInfoResult(resource_name=resource_name)
@@ -383,6 +428,66 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(result.delay_s, 0.2)
         self.assertEqual(result.response.data_base64, "AAFyYXc=")
         self.assertIsNone(result.response.cleanup_on_close)
+
+    def test_read_binary_values_returns_inline_numeric_payload(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        read_binary_values = self.mcp.tools["read_binary_values"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        result = read_binary_values(
+            session_id,
+            data_type="d",
+            is_big_endian=True,
+            header_format="hp",
+            expect_termination=False,
+        )
+
+        self.assertEqual(result.payload.value_count, 2)
+        self.assertEqual(result.payload.values, [1.0, 2.5])
+        self.assertEqual(
+            self.adapter.last_binary_values_read_kwargs,
+            {
+                "data_type": "d",
+                "is_big_endian": True,
+                "header_format": "hp",
+                "expect_termination": False,
+            },
+        )
+
+    def test_query_binary_values_returns_inline_numeric_payload(self) -> None:
+        open_resource_session = self.mcp.tools["open_resource_session"]
+        query_binary_values = self.mcp.tools["query_binary_values"]
+
+        open_result = open_resource_session("TCPIP0::1::INSTR")
+        session_id = open_result.session.session_id
+        result = query_binary_values(
+            session_id,
+            "WAV:DATA?",
+            data_type="f",
+            is_big_endian=False,
+            header_format="ieee",
+            expect_termination=True,
+            delay_s=0.3,
+        )
+
+        self.assertEqual(result.command, "WAV:DATA?")
+        self.assertEqual(result.delay_s, 0.3)
+        self.assertEqual(result.payload.value_count, 2)
+        self.assertEqual(result.payload.values, [1.0, 2.5])
+        self.assertEqual(
+            self.adapter.last_binary_values_query,
+            (
+                "WAV:DATA?",
+                {
+                    "data_type": "f",
+                    "is_big_endian": False,
+                    "header_format": "ieee",
+                    "expect_termination": True,
+                    "delay_s": 0.3,
+                },
+            ),
+        )
 
 
 if __name__ == "__main__":

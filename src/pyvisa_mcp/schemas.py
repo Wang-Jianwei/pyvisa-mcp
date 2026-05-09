@@ -185,6 +185,41 @@ class QueryBinaryMessageResult(BaseModel):
     error: OperationError | None = Field(default=None, description="Structured error when the binary query operation fails.")
 
 
+class BinaryValuesPayload(BaseModel):
+    data_type: str = Field(
+        description="PyVISA binary values datatype code used to decode the payload, such as 'f' for float32 or 'd' for float64.",
+        examples=["f", "d", "h"],
+    )
+    is_big_endian: bool = Field(description="Whether the binary values were decoded as big-endian byte order.")
+    header_format: str = Field(
+        description="Binary block header format used while decoding the response.",
+        examples=["ieee", "hp", "empty"],
+    )
+    expect_termination: bool = Field(description="Whether termination was expected after the binary value block.")
+    value_count: int = Field(description="Number of numeric values returned after decoding the binary block.", examples=[2, 1024])
+    values: list[int | float] = Field(
+        default_factory=list,
+        description="Decoded numeric values from the binary block.",
+        examples=[[1.0, 2.5, 3.75], [100, 200, 300]],
+    )
+
+
+class ReadBinaryValuesResult(BaseModel):
+    session_id: str = Field(description="Session identifier targeted by the binary values read operation.")
+    resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
+    payload: BinaryValuesPayload | None = Field(default=None, description="Decoded numeric values returned by the binary values read operation.")
+    error: OperationError | None = Field(default=None, description="Structured error when the binary values read operation fails.")
+
+
+class QueryBinaryValuesResult(BaseModel):
+    session_id: str = Field(description="Session identifier targeted by the binary values query operation.")
+    command: str = Field(description="Query command string sent before reading and decoding the binary value block.", examples=["CURV?", "WAV:DATA?"])
+    resource_name: str | None = Field(default=None, description="Resource name bound to the target session, when known.")
+    delay_s: float | None = Field(default=None, description="Optional per-call delay in seconds inserted before reading the binary values response.")
+    payload: BinaryValuesPayload | None = Field(default=None, description="Decoded numeric values returned by the binary values query operation.")
+    error: OperationError | None = Field(default=None, description="Structured error when the binary values query operation fails.")
+
+
 class ResourceInfoDetails(BaseModel):
     interface_type: str | None = Field(default=None, description="Backend-reported interface type for the resource.")
     interface_board_number: int | None = Field(default=None, description="Board number associated with the interface, when reported by the backend.")

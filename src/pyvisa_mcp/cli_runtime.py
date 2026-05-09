@@ -32,6 +32,8 @@ HELP_TEXT = """Commands:
   query [session_id|@] [--delay-s F] <command>
   read [session_id|@]
   write [session_id|@] <message>
+    read-values [session_id|@] [--datatype CODE] [--header-format ieee|hp|empty] [--big-endian] [--expect-termination true|false]
+    query-values [session_id|@] [--datatype CODE] [--header-format ieee|hp|empty] [--big-endian] [--expect-termination true|false] [--delay-s F] <command>
     query-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH] [--output-conflict error|overwrite] [--delay-s F] <command>
     read-bin [session_id|@] [--payload-mode base64|temp_file] [--output-file PATH] [--output-conflict error|overwrite]
     write-bin [session_id|@] (--base64 DATA | --file PATH)
@@ -234,6 +236,20 @@ class PyvisaMcpCli:
                     {"session_id": session_id, "message": " ".join(remaining)},
                 )
                 return self._render_payload_result(command, payload)
+            if command == "read-values":
+                session_id, remaining = self._resolve_optional_session(arguments)
+                payload = await self._runtime.call_tool(
+                    "read_binary_values",
+                    _parse_binary_values_read_arguments(session_id, remaining),
+                )
+                return self._render_payload_result(command, payload)
+            if command == "query-values":
+                session_id, remaining = self._resolve_optional_session(arguments)
+                payload = await self._runtime.call_tool(
+                    "query_binary_values",
+                    _parse_binary_values_query_arguments(session_id, remaining),
+                )
+                return self._render_payload_result(command, payload)
             if command == "read-bin":
                 session_id, remaining = self._resolve_optional_session(arguments)
                 payload = await self._runtime.call_tool(
@@ -371,6 +387,10 @@ class PyvisaMcpCli:
             return CommandResult(
                 text=f"Wrote {payload.get('bytes_written')} bytes to {payload.get('resource_name')}"
             )
+        if command == "read-values":
+            return CommandResult(text=_render_binary_values_summary("Read", payload.get("payload")))
+        if command == "query-values":
+            return CommandResult(text=_render_binary_values_summary("Query returned", payload.get("payload")))
         if command == "write-bin":
             return CommandResult(
                 text=f"Wrote {payload.get('bytes_written')} binary bytes to {payload.get('resource_name')}"
@@ -437,6 +457,87 @@ def _parse_query_arguments(session_id: str, arguments: list[str]) -> dict[str, A
 
     if "command" not in tool_args:
         raise ValueError("query requires a command")
+    return tool_args
+
+
+def _parse_binary_values_read_arguments(session_id: str, arguments: list[str]) -> dict[str, Any]:
+    tool_args: dict[str, Any] = {
+        "session_id": session_id,
+        "data_type": "f",
+        "header_format": "ieee",
+        "is_big_endian": False,
+        "expect_termination": True,
+    }
+    index = 0
+    while index < len(arguments):
+        token = arguments[index]
+        if token == "--datatype":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --datatype")
+            tool_args["data_type"] = arguments[index + 1]
+            index += 2
+            continue
+        if token == "--header-format":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --header-format")
+            tool_args["header_format"] = _parse_binary_header_format(arguments[index + 1])
+            index += 2
+            continue
+        if token == "--big-endian":
+            tool_args["is_big_endian"] = True
+            index += 1
+            continue
+        if token == "--expect-termination":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --expect-termination")
+            tool_args["expect_termination"] = _parse_cli_bool(arguments[index + 1], option_name="--expect-termination")
+            index += 2
+            continue
+        raise ValueError("read-values only accepts --datatype, --header-format, --big-endian, and --expect-termination")
+    return tool_args
+
+
+def _parse_binary_values_query_arguments(session_id: str, arguments: list[str]) -> dict[str, Any]:
+    tool_args = _parse_binary_values_read_arguments(session_id, [])
+    if not arguments:
+        raise ValueError("query-values requires a command")
+
+    index = 0
+    while index < len(arguments):
+        token = arguments[index]
+        if token == "--datatype":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --datatype")
+            tool_args["data_type"] = arguments[index + 1]
+            index += 2
+            continue
+        if token == "--header-format":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --header-format")
+            tool_args["header_format"] = _parse_binary_header_format(arguments[index + 1])
+            index += 2
+            continue
+        if token == "--big-endian":
+            tool_args["is_big_endian"] = True
+            index += 1
+            continue
+        if token == "--expect-termination":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --expect-termination")
+            tool_args["expect_termination"] = _parse_cli_bool(arguments[index + 1], option_name="--expect-termination")
+            index += 2
+            continue
+        if token == "--delay-s":
+            if index + 1 >= len(arguments):
+                raise ValueError("Missing value for --delay-s")
+            tool_args["delay_s"] = float(arguments[index + 1])
+            index += 2
+            continue
+        tool_args["command"] = " ".join(arguments[index:])
+        break
+
+    if "command" not in tool_args:
+        raise ValueError("query-values requires a command")
     return tool_args
 
 
@@ -570,6 +671,21 @@ def _parse_output_file_conflict(value: str) -> str:
     return value
 
 
+def _parse_binary_header_format(value: str) -> str:
+    if value not in {"ieee", "hp", "empty"}:
+        raise ValueError("header format must be 'ieee', 'hp', or 'empty'")
+    return value
+
+
+def _parse_cli_bool(value: str, *, option_name: str) -> bool:
+    normalized = value.lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise ValueError(f"{option_name} must be 'true' or 'false'")
+
+
 def _render_binary_payload_summary(prefix: str, payload: Any) -> str:
     if not isinstance(payload, dict):
         return f"{prefix}: no payload"
@@ -581,3 +697,14 @@ def _render_binary_payload_summary(prefix: str, payload: Any) -> str:
     data_base64 = str(payload.get("data_base64") or "")
     preview = data_base64 if len(data_base64) <= 48 else f"{data_base64[:45]}..."
     return f"{prefix} {byte_count} bytes as base64: {preview}"
+
+
+def _render_binary_values_summary(prefix: str, payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return f"{prefix}: no values"
+    value_count = payload.get("value_count", 0)
+    values = payload.get("values", [])
+    preview_items = ", ".join(str(item) for item in values[:5])
+    if len(values) > 5:
+        preview_items = f"{preview_items}, ..."
+    return f"{prefix} {value_count} values ({payload.get('data_type')}): {preview_items}"
