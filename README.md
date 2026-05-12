@@ -60,16 +60,18 @@ python -m build --no-isolation
 When using `--no-isolation`, install the build backend into the current environment first:
 
 ```bash
-python -m pip install -U setuptools wheel build
+python -m pip install -U build hatchling
 python -m build --no-isolation
 ```
 
 In this repository, if you are using the checked-in virtual environment, run:
 
 ```bash
-.venv\Scripts\python.exe -m pip install -U setuptools wheel build
+.venv\Scripts\python.exe -m pip install -U build hatchling
 .venv\Scripts\python.exe -m build --no-isolation
 ```
+
+Installing `.[dev]` also provisions the local packaging toolchain.
 
 ## Run
 
