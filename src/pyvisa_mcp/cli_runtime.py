@@ -11,11 +11,14 @@ from typing import Any, Protocol
 
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.types import TextContent, TextResourceContents
+from pydantic import AnyUrl, TypeAdapter, ValidationError
 
 
 _UUID_PATTERN = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
 )
+_RESOURCE_URI_ADAPTER = TypeAdapter(AnyUrl)
 
 HELP_TEXT = """Commands:
   help
@@ -133,7 +136,7 @@ class CliRuntime:
         if structured_content is not None:
             return dict(structured_content)
 
-        text_fragments = [item.text for item in result.content if hasattr(item, "text")]
+        text_fragments = [item.text for item in result.content if isinstance(item, TextContent)]
         if len(text_fragments) == 1:
             parsed = _try_json_load(text_fragments[0])
             if isinstance(parsed, dict):
@@ -142,8 +145,8 @@ class CliRuntime:
         return {"content": text_fragments}
 
     async def read_resource(self, uri: str) -> Any:
-        result = await self.session.read_resource(uri)
-        texts = [item.text for item in result.contents if hasattr(item, "text")]
+        result = await self.session.read_resource(_coerce_resource_uri(uri))
+        texts = [item.text for item in result.contents if isinstance(item, TextResourceContents)]
         if len(texts) == 1:
             return _try_json_load(texts[0])
         return [_try_json_load(text) for text in texts]
@@ -649,6 +652,13 @@ def _try_json_load(value: str) -> Any:
         return json.loads(value)
     except json.JSONDecodeError:
         return value
+
+
+def _coerce_resource_uri(value: str) -> AnyUrl:
+    try:
+        return _RESOURCE_URI_ADAPTER.validate_python(value)
+    except ValidationError as exc:
+        raise ValueError(f"Invalid resource URI: {value}") from exc
 
 
 def _dump_json(value: Any) -> str:

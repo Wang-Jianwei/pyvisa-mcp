@@ -53,6 +53,17 @@ class ServerConfigTests(unittest.TestCase):
         self.assertEqual(config.default_open_timeout_ms, 10)
         self.assertEqual(config.default_timeout_ms, 4000)
 
+    def test_from_env_falls_back_to_stdio_for_invalid_transport(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "PYVISA_MCP_TRANSPORT": "http",
+            },
+            clear=False,
+        ):
+            config = ServerConfig.from_env()
+        self.assertEqual(config.preferred_transport, "stdio")
+
 
 if __name__ == "__main__":
     unittest.main()
